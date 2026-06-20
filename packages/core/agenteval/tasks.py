@@ -1,0 +1,200 @@
+"""AgentEval - task suites.
+
+Tasks define what an agent is tested against. Each task has:
+- A prompt/instruction
+- A reference answer or an automated checker
+- A category and difficulty level
+- Optional metadata (tags, expected behavior)
+
+Built-in suites cover the common agent capabilities:
+codegen, qa, reasoning, summarization, and tool-use.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Callable
+
+
+@dataclass
+class Task:
+    """A single evaluation task."""
+
+    id: str
+    category: str  # codegen | qa | reasoning | summarization | tool-use
+    prompt: str
+    reference: str = ""  # reference answer (for exact/contains matching)
+    difficulty: str = "easy"  # easy | medium | hard
+    checker: Callable[[str, str], bool] | None = None  # custom (output, reference) -> bool
+    tags: list[str] = field(default_factory=list)
+
+    def check(self, output: str) -> bool:
+        """Return True if the output passes the task."""
+        if self.checker:
+            return self.checker(output, self.reference)
+        if not self.reference:
+            return bool(output.strip())
+        return self.reference.strip() in output
+
+
+# ---------------------------------------------------------------------------
+# Built-in checkers
+# ---------------------------------------------------------------------------
+def _contains(output: str, reference: str) -> bool:
+    return reference.strip().lower() in output.strip().lower()
+
+
+def _contains_any(output: str, reference: str) -> bool:
+    parts = [p.strip() for p in reference.split("|") if p.strip()]
+    lowered = output.strip().lower()
+    return any(p.lower() in lowered for p in parts)
+
+
+def _has_code_blocks(output: str, _reference: str) -> bool:
+    return "```" in output or "def " in output or "function " in output or "return " in output
+
+
+def _is_reasonable_length(output: str, _reference: str) -> bool:
+    """Summaries and explanations should have meaningful length."""
+    return len(output.strip()) > 20
+
+
+# ---------------------------------------------------------------------------
+# Task suites
+# ---------------------------------------------------------------------------
+CODEGEN_TASKS = [
+    Task(
+        id="codegen-fizzbuzz",
+        category="codegen",
+        prompt="Write a Python function that prints numbers 1 to 100, replacing multiples of 3 with 'Fizz', multiples of 5 with 'Buzz', and multiples of both with 'FizzBuzz'.",
+        reference="def fizzbuzz",
+        difficulty="easy",
+        checker=_contains,
+        tags=["python", "logic"],
+    ),
+    Task(
+        id="codegen-two-sum",
+        category="codegen",
+        prompt="Write a function two_sum(nums, target) that returns the indices of two numbers that add up to the target. Include a docstring.",
+        reference="def two_sum",
+        difficulty="medium",
+        checker=_contains,
+        tags=["python", "algorithms"],
+    ),
+    Task(
+        id="codegen-merge",
+        category="codegen",
+        prompt="Write a Python function to merge two sorted lists into one sorted list without using sorted().",
+        reference="def merge",
+        difficulty="medium",
+        checker=_contains,
+        tags=["python", "algorithms"],
+    ),
+]
+
+QA_TASKS = [
+    Task(
+        id="qa-capital",
+        category="qa",
+        prompt="What is the capital of France?",
+        reference="Paris",
+        difficulty="easy",
+        checker=_contains,
+        tags=["knowledge"],
+    ),
+    Task(
+        id="qa-concurrency",
+        category="qa",
+        prompt="In one sentence, what is the difference between a mutex and a semaphore?",
+        reference="mutex|semaphore",
+        difficulty="medium",
+        checker=_contains_any,
+        tags=["concurrency"],
+    ),
+]
+
+REASONING_TASKS = [
+    Task(
+        id="reasoning-riddle",
+        category="reasoning",
+        prompt="A bat and a ball cost $1.10 in total. The bat costs $1.00 more than the ball. How much does the ball cost? Explain your reasoning.",
+        reference="0.05|5 cents|five cents",
+        difficulty="medium",
+        checker=_contains_any,
+        tags=["logic"],
+    ),
+    Task(
+        id="reasoning-water",
+        category="reasoning",
+        prompt="If you have 8 liters of water and pour half into a 5-liter bucket, then pour all of the 5-liter bucket into a 3-liter bucket, how much water is left in the 5-liter bucket?",
+        reference="2 liters|2 litres|2L",
+        difficulty="hard",
+        checker=_contains_any,
+        tags=["math"],
+    ),
+]
+
+SUMMARIZATION_TASKS = [
+    Task(
+        id="summarize-events",
+        category="summarization",
+        prompt="Summarize in 2-3 sentences: 'The company announced its Q3 earnings, reporting a 12% increase in revenue driven by strong demand for its AI products. The CEO noted plans to expand into European markets next year and highlighted ongoing investment in research and development.'",
+        reference="revenue|AI|European",
+        difficulty="easy",
+        checker=_contains_any,
+        tags=["summarization"],
+    ),
+    Task(
+        id="summarize-length",
+        category="summarization",
+        prompt="Summarize the benefits of version control systems in under 100 words.",
+        reference="",
+        difficulty="easy",
+        checker=_is_reasonable_length,
+        tags=["summarization"],
+    ),
+]
+
+TOOL_USE_TASKS = [
+    Task(
+        id="tool-format-date",
+        category="tool-use",
+        prompt="Write a Python function format_date(iso) that converts '2026-08-09' into 'August 9, 2026'.",
+        reference="def format_date",
+        difficulty="medium",
+        checker=_contains,
+        tags=["tool-use", "python"],
+    ),
+    Task(
+        id="tool-parse-json",
+        category="tool-use",
+        prompt="Write a Python function that takes a JSON string and returns the value of the 'name' key, or None if missing.",
+        reference="def ",
+        difficulty="easy",
+        checker=_contains,
+        tags=["tool-use", "python"],
+    ),
+]
+
+TASK_REGISTRY: dict[str, list[Task]] = {
+    "codegen": CODEGEN_TASKS,
+    "qa": QA_TASKS,
+    "reasoning": REASONING_TASKS,
+    "summarization": SUMMARIZATION_TASKS,
+    "tool-use": TOOL_USE_TASKS,
+    "all": sum(
+        [CODEGEN_TASKS, QA_TASKS, REASONING_TASKS, SUMMARIZATION_TASKS, TOOL_USE_TASKS], []
+    ),
+}
+
+
+def get_tasks(suite: str = "all") -> list[Task]:
+    """Return the list of tasks for a named suite."""
+    if suite not in TASK_REGISTRY:
+        raise ValueError(
+            f"Unknown task suite '{suite}'. Available: {', '.join(TASK_REGISTRY)}"
+        )
+    return TASK_REGISTRY[suite]
+
+
+__all__ = ["Task", "get_tasks", "TASK_REGISTRY"]
