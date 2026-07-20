@@ -5,8 +5,9 @@
 **Open source agent evaluation framework — score any AI agent across providers with standardized, reproducible benchmarks.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/Python-3.9%2B-blue.svg)](packages/core/pyproject.toml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](packages/core/pyproject.toml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](packages/sdk-ts/package.json)
+[![CI](https://github.com/rexblade58/agenteval/actions/workflows/ci.yml/badge.svg)](https://github.com/rexblade58/agenteval/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
@@ -52,11 +53,30 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | **Task suites** | codegen, qa, reasoning, summarization, tool-use (+ custom) |
 | **pass@k** | Run a task N times, pass if any sample succeeds |
 | **Cost tracking** | Per-run USD cost for every provider |
-| **CLI + SDK** | Python CLI and TypeScript SDK |
+| **CLI + SDK** | Python CLI and TypeScript SDK (typed, tested) |
 | **CI integration** | Non-zero exit below threshold; JSON output |
 | **Zero heavy deps** | httpx + rich only — no framework lock-in |
 
 ---
+
+## Status
+
+**Actively developed.** Current state of the repo:
+
+| Area | Status |
+| :--- | :--- |
+| Python core (CLI, providers, evaluator, reports) | ✅ Done — 9 unit tests |
+| TypeScript SDK (types + mock runner + CLI wrapper) | ✅ Done — 4 unit tests, strict TS |
+| CI pipeline | ✅ Python 3.10/3.11/3.12 + TS typecheck/test |
+| Mock provider (keyless testing) | ✅ Done |
+| Providers: OpenAI, Anthropic, Ollama, mock | ✅ Done |
+| pass@k + cost + latency metrics | ✅ Done |
+| Semantic scoring (QA) | 🔜 #2 — see [issue](https://github.com/rexblade58/agenteval/issues/2) |
+| Gemini provider | 🔜 #1 — see [issue](https://github.com/rexblade58/agenteval/issues/1) |
+| Groq provider | 🔜 #3 — see [issue](https://github.com/rexblade58/agenteval/issues/3) |
+| Web dashboard | 🔜 #4 — see [issue](https://github.com/rexblade58/agenteval/issues/4) |
+
+See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next and [CHANGELOG-style commit history](https://github.com/rexblade58/agenteval/commits/main) for recent progress.
 
 ## Quick start
 
@@ -143,7 +163,12 @@ Register it in `PROVIDER_REGISTRY` and it works with the CLI, SDK, and reporting
 
 ## Roadmap
 
-- [ ] Web dashboard with historical comparisons
+Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agenteval/issues) — community PRs are very welcome.
+
+- [ ] [Web dashboard with historical comparisons](https://github.com/rexblade58/agenteval/issues/4)
+- [ ] [Semantic similarity scoring for QA tasks](https://github.com/rexblade58/agenteval/issues/2)
+- [ ] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1)
+- [ ] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3)
 - [ ] Human-in-the-loop task review
 - [ ] Adversarial / robustness evaluation
 - [ ] Agent trace evaluation (multi-step tool calls)
