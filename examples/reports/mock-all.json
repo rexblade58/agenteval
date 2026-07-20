@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-02T23:15:46.913879+00:00",
+  "provider": "mock",
+  "model": "mock-model",
+  "suite": "all",
+  "total_tasks": 11,
+  "passed": 11,
+  "failed": 0,
+  "accuracy": 1.0,
+  "pass_at_1": 1.0,
+  "pass_at_k": 1.0,
+  "avg_latency_ms": 0.01,
+  "total_cost_usd": 0.0,
+  "category_breakdown": {
+    "codegen": {
+      "total": 3,
+      "passed": 3,
+      "accuracy": 1.0
+    },
+    "qa": {
+      "total": 2,
+      "passed": 2,
+      "accuracy": 1.0
+    },
+    "reasoning": {
+      "total": 2,
+      "passed": 2,
+      "accuracy": 1.0
+    },
+    "summarization": {
+      "total": 2,
+      "passed": 2,
+      "accuracy": 1.0
+    },
+    "tool-use": {
+      "total": 2,
+      "passed": 2,
+      "accuracy": 1.0
+    }
+  },
+  "results": [
+    {
+      "task_id": "codegen-fizzbuzz",
+      "category": "codegen",
+      "passed": true,
+      "latency_ms": 0.02,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "codegen-two-sum",
+      "category": "codegen",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "codegen-merge",
+      "category": "codegen",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "qa-capital",
+      "category": "qa",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "qa-concurrency",
+      "category": "qa",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "reasoning-riddle",
+      "category": "reasoning",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "reasoning-water",
+      "category": "reasoning",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "summarize-events",
+      "category": "summarization",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "summarize-length",
+      "category": "summarization",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "tool-format-date",
+      "category": "tool-use",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "tool-parse-json",
+      "category": "tool-use",
+      "passed": true,
+      "latency_ms": 0.01,
+      "attempts": 1,
+      "error": null
+    }
+  ]
+}

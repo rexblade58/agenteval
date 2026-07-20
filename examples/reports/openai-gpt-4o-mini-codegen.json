@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-03T23:15:46.914818+00:00",
+  "provider": "openai",
+  "model": "gpt-4o-mini",
+  "suite": "codegen",
+  "total_tasks": 3,
+  "passed": 3,
+  "failed": 0,
+  "accuracy": 1.0,
+  "pass_at_1": 1.0,
+  "pass_at_k": 1.0,
+  "avg_latency_ms": 420.0,
+  "total_cost_usd": 0.000412,
+  "category_breakdown": {
+    "codegen": {
+      "total": 3,
+      "passed": 3,
+      "accuracy": 1.0
+    }
+  },
+  "results": [
+    {
+      "task_id": "codegen-fizzbuzz",
+      "category": "codegen",
+      "passed": true,
+      "latency_ms": 4.2,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "codegen-two-sum",
+      "category": "codegen",
+      "passed": true,
+      "latency_ms": 4.2,
+      "attempts": 1,
+      "error": null
+    },
+    {
+      "task_id": "codegen-merge",
+      "category": "codegen",
+      "passed": true,
+      "latency_ms": 4.2,
+      "attempts": 1,
+      "error": null
+    }
+  ]
+}
