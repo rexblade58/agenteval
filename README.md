@@ -93,8 +93,12 @@ agenteval run --provider mock --suite all
 
 ```bash
 export OPENAI_API_KEY=sk-...
-agenteval run --provider openai --model gpt-4o-mini --suite codegen
+agenteval run --provider openai --model gpt-4o-mini --suite codegen \
+  --format json --output reports/openai-codegen.json
 ```
+
+Reports are written in a stable JSON schema (`schema_version`, `generated_at`,
+metrics, per-task results) — see `examples/reports/` for samples.
 
 ### Anthropic
 
@@ -137,7 +141,7 @@ agenteval/
 │   │       ├── tasks.py      built-in task suites
 │   │       └── report.py     JSON + Markdown reports
 │   └── sdk-ts/             TypeScript SDK
-├── examples/               Runnable examples
+├── examples/               Runnable examples + sample reports
 ├── docs/                   Guides
 └── .github/workflows/      CI (tests, lint, publish)
 ```

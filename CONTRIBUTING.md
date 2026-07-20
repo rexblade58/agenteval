@@ -22,10 +22,21 @@ more providers and task suites it supports, the more useful it becomes.
 
 ## Adding a provider
 
-1. Subclass `BaseProvider` in `packages/core/agenteval/providers.py`
-2. Implement `complete(messages, temperature) -> ProviderResult`
-3. Register it in `PROVIDER_REGISTRY`
-4. Add a test in `packages/core/tests/test_core.py`
+Providers turn an LLM API into a `complete(messages) -> ProviderResult` call.
+Adding one is a focused, testable contribution — see the existing providers in
+`packages/core/agenteval/providers.py` for reference.
+
+### Steps
+
+1. **Subclass `BaseProvider`** in `packages/core/agenteval/providers.py`
+2. **Implement `complete(messages, temperature) -> ProviderResult`**
+3. **Register it** in `PROVIDER_REGISTRY`
+4. **Add tests** in `packages/core/tests/test_core.py` using a fake transport
+   (never hit a real API in tests)
+5. **Document it** in `docs/providers.md` and update the status table in
+   `README.md`
+
+### Template
 
 ```python
 from agenteval.providers import BaseProvider, ProviderResult, Message
@@ -33,13 +44,51 @@ from agenteval.providers import BaseProvider, ProviderResult, Message
 class MyProvider(BaseProvider):
     name = "my-provider"
 
-    def __init__(self, model="default", **kwargs):
+    def __init__(self, model="default", api_key=None):
         self.model = model
+        self.api_key = api_key or os.environ.get("MY_API_KEY", "")
+        if not self.api_key:
+            raise ValueError("MY_API_KEY is not set")
 
     def complete(self, messages: list[Message], temperature: float = 0.7) -> ProviderResult:
-        # ... call your API ...
-        return ProviderResult(text=response, latency_ms=elapsed)
+        import httpx  # imported lazily so the CLI stays fast
+        import time
+
+        payload = {
+            "model": self.model,
+            "messages": [{"role": m.role, "content": m.content} for m in messages],
+        }
+        start = time.perf_counter()
+        resp = httpx.post("https://api.example.com/v1/chat", json=payload,
+                          headers={"Authorization": f"Bearer {self.api_key}"}, timeout=120)
+        resp.raise_for_status()
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        data = resp.json()
+
+        return ProviderResult(
+            text=data["choices"][0]["message"]["content"],
+            latency_ms=elapsed_ms,
+            input_tokens=data.get("usage", {}).get("prompt_tokens", 0),
+            output_tokens=data.get("usage", {}).get("completion_tokens", 0),
+            cost_usd=0.0,  # fill in real pricing per 1k tokens
+            raw=data,
+        )
 ```
+
+### Checklist for providers
+
+- [ ] Environment variable convention: `{NAME}_API_KEY` (uppercase, documented)
+- [ ] `cost_usd` computed from real published pricing per 1k tokens
+- [ ] `httpx` imported lazily inside `complete()` (keeps CLI startup fast)
+- [ ] Registered in `PROVIDER_REGISTRY` (CLI `--provider` accepts it automatically)
+- [ ] Unit test with a fake/mocked transport — no network calls in CI
+- [ ] Documented in `docs/providers.md` + `README.md` status table
+
+### Testing a provider without an API key
+
+The `mock` provider is deterministic and needs no network. Use it as the
+baseline for any suite: `agenteval run --provider mock --suite all`.
+
 
 ## Code style
 
@@ -52,6 +101,21 @@ class MyProvider(BaseProvider):
 ```bash
 pip install -e "packages/core[dev]"
 pytest packages/core/tests
+
+# TypeScript SDK
+cd packages/sdk-ts
+npm install
+npm test          # vitest
+npm run typecheck # tsc --noEmit
+```
+
+## Sample reports
+
+`examples/reports/` contains sample JSON evaluation reports that demonstrate
+the report schema (also used by the future web dashboard). Regenerate them with:
+
+```bash
+python examples/generate_sample_reports.py
 ```
 
 ## Code of conduct
