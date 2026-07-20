@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -20,9 +20,9 @@ jobs:
       - name: Install
         run: pip install -e "packages/core[dev]"
       - name: Run tests
-        run: pytest packages/core/tests -v --cov=agenteval --cov-report=term-missing
+        run: pytest packages/core/tests -v
       - name: Verify CLI
-        run: agenteval run --provider mock --suite all
+        run: agenteval run --provider mock --suite all --format json
 
   test-ts:
     runs-on: ubuntu-latest
