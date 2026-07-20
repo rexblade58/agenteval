@@ -60,6 +60,15 @@ def test_report_json_serializable():
     assert "results" in parsed
 
 
+def test_report_has_schema_and_timestamp():
+    provider = MockProvider()
+    report = Evaluator(provider, suite="codegen").run_suite()
+    parsed = json.loads(to_json(report))
+    assert parsed["schema_version"] == 1
+    assert "generated_at" in parsed
+    assert parsed["generated_at"].endswith("+00:00") or "Z" in parsed["generated_at"]
+
+
 def test_report_markdown_has_tables():
     provider = MockProvider()
     report = Evaluator(provider, suite="codegen").run_suite()

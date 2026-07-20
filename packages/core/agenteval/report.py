@@ -6,14 +6,19 @@ Produces machine-readable JSON and human-readable Markdown reports.
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from typing import Any
 
 from .evaluator import EvaluationReport
+
+SCHEMA_VERSION = 1
 
 
 def to_dict(report: EvaluationReport) -> dict[str, Any]:
     """Convert a report into a plain serializable dict."""
     return {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "provider": report.provider,
         "model": report.model,
         "suite": report.suite,
@@ -86,4 +91,4 @@ def to_markdown(report: EvaluationReport) -> str:
     return "\n".join(lines)
 
 
-__all__ = ["to_dict", "to_json", "to_markdown"]
+__all__ = ["to_dict", "to_json", "to_markdown", "SCHEMA_VERSION"]
