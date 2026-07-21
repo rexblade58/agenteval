@@ -3,6 +3,7 @@
 Usage:
   agenteval run --provider openai --model gpt-4o-mini --suite all
   agenteval run --provider mock --suite codegen
+  agenteval serve --dir reports
   agenteval list-providers
   agenteval list-suites
 """
@@ -12,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 
 from .evaluator import Evaluator
 from .providers import PROVIDER_REGISTRY, create_provider
@@ -37,6 +39,12 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--format", choices=["json", "markdown"], default="markdown",
                      help="Output format")
     run.add_argument("--output", default=None, help="Write the report to a file")
+
+    serve = sub.add_parser("serve", help="Start the local web dashboard")
+    serve.add_argument("--dir", default="reports",
+                       help="Directory of evaluation reports (default: reports)")
+    serve.add_argument("--host", default="127.0.0.1", help="Bind address (default: 127.0.0.1)")
+    serve.add_argument("--port", type=int, default=8000, help="Port (default: 8000)")
 
     sub.add_parser("list-providers", help="List available providers")
     sub.add_parser("list-suites", help="List available task suites")
@@ -90,12 +98,21 @@ def _list_suites() -> int:
     return 0
 
 
+def _serve(args: argparse.Namespace) -> int:
+    from .dashboard import serve as serve_dashboard
+
+    serve_dashboard(Path(args.dir), host=args.host, port=args.port)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
 
     if args.command == "run":
         return _run(args)
+    if args.command == "serve":
+        return _serve(args)
     if args.command == "list-providers":
         return _list_providers()
     if args.command == "list-suites":
