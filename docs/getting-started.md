@@ -62,6 +62,22 @@ Write to a file:
 agenteval run --provider openai --format markdown --output report.md
 ```
 
+## Web dashboard
+
+Save reports into a directory and serve them locally to see trends across
+providers and time:
+
+```bash
+mkdir -p reports
+agenteval run --provider mock --suite all --format json --output reports/mock.json
+agenteval serve --dir reports
+# open http://127.0.0.1:8000
+```
+
+The dashboard is dependency-free (Python stdlib only) and shows accuracy by
+provider, an accuracy-over-time chart, and the full report table. The JSON API
+is available at `/api/reports`.
+
 ## Using in CI
 
 The CLI exits with code 2 when accuracy is below 50%, so you can gate

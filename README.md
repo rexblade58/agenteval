@@ -71,10 +71,10 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | Mock provider (keyless testing) | ✅ Done |
 | Providers: OpenAI, Anthropic, Ollama, mock | ✅ Done |
 | pass@k + cost + latency metrics | ✅ Done |
+| Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
 | Semantic scoring (QA) | 🔜 #2 — see [issue](https://github.com/rexblade58/agenteval/issues/2) |
 | Gemini provider | 🔜 #1 — see [issue](https://github.com/rexblade58/agenteval/issues/1) |
 | Groq provider | 🔜 #3 — see [issue](https://github.com/rexblade58/agenteval/issues/3) |
-| Web dashboard | 🔜 #4 — see [issue](https://github.com/rexblade58/agenteval/issues/4) |
 
 See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next and [CHANGELOG-style commit history](https://github.com/rexblade58/agenteval/commits/main) for recent progress.
 
@@ -111,6 +111,14 @@ agenteval run --provider anthropic --model claude-3-5-sonnet-latest --suite qa
 
 ```bash
 agenteval run --provider ollama --model llama3.2 --suite reasoning
+```
+
+### Web dashboard
+
+```bash
+agenteval run --provider mock --suite all --output reports/mock.json
+agenteval serve --dir reports
+# → http://127.0.0.1:8000  (accuracy/cost/latency trends, provider comparison)
 ```
 
 ### TypeScript SDK
@@ -169,7 +177,7 @@ Register it in `PROVIDER_REGISTRY` and it works with the CLI, SDK, and reporting
 
 Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agenteval/issues) — community PRs are very welcome.
 
-- [ ] [Web dashboard with historical comparisons](https://github.com/rexblade58/agenteval/issues/4)
+- [x] [Web dashboard with historical comparisons](https://github.com/rexblade58/agenteval/issues/4) — `agenteval serve`
 - [ ] [Semantic similarity scoring for QA tasks](https://github.com/rexblade58/agenteval/issues/2)
 - [ ] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1)
 - [ ] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3)
