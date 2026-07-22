@@ -3,6 +3,7 @@
 Supports any LLM provider through a common interface:
 - OpenAI-compatible APIs (OpenAI, DeepSeek, Together, Groq, local servers)
 - Anthropic Messages API
+- Google Gemini REST API
 - Ollama (local models)
 - A deterministic MockProvider for offline testing
 """
@@ -243,6 +244,106 @@ class AnthropicProvider(BaseProvider):
 
 
 # ---------------------------------------------------------------------------
+# Groq provider (OpenAI-compatible, free-tier)
+# ---------------------------------------------------------------------------
+class GroqProvider(OpenAIProvider):
+    """Groq's OpenAI-compatible endpoint with free-tier models."""
+
+    name = "groq"
+
+    def __init__(
+        self,
+        model: str = "llama-3.3-70b-versatile",
+        api_key: str | None = None,
+        base_url: str = "https://api.groq.com/openai/v1",
+        cost_per_1k_input: float = 0.0,  # free tier
+        cost_per_1k_output: float = 0.0,
+    ):
+        self.model = model
+        self.api_key = api_key or os.environ.get("GROQ_API_KEY", "")
+        self.base_url = base_url
+        self.cost_per_1k_input = cost_per_1k_input
+        self.cost_per_1k_output = cost_per_1k_output
+        if not self.api_key:
+            raise ValueError(
+                "GROQ_API_KEY is not set. Provide api_key= or set the environment variable."
+            )
+
+
+# ---------------------------------------------------------------------------
+# Gemini provider (Google REST API)
+# ---------------------------------------------------------------------------
+class GeminiProvider(BaseProvider):
+    """Google Gemini models via the REST API (generativelanguage)."""
+
+    name = "gemini"
+
+    def __init__(
+        self,
+        model: str = "gemini-2.0-flash",
+        api_key: str | None = None,
+        cost_per_1k_input: float = 0.0001,
+        cost_per_1k_output: float = 0.0004,
+    ):
+        self.model = model
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        self.cost_per_1k_input = cost_per_1k_input
+        self.cost_per_1k_output = cost_per_1k_output
+        if not self.api_key:
+            raise ValueError(
+                "GEMINI_API_KEY is not set. Provide api_key= or set the environment variable."
+            )
+
+    def complete(self, messages: list[Message], temperature: float = 0.7) -> ProviderResult:
+        import httpx
+        import time
+
+        # Gemini uses a slightly different format: system prompt is a role too
+        contents = [{"role": "user" if m.role == "user" else "model",
+                     "parts": [{"text": m.content}]} for m in messages]
+        payload = {
+            "contents": contents,
+            "generationConfig": {"temperature": temperature},
+        }
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:generateContent"
+        )
+        headers = {"x-goog-api-key": self.api_key}
+
+        start = time.perf_counter()
+        resp = httpx.post(url, json=payload, headers=headers, timeout=120)
+        resp.raise_for_status()
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        data = resp.json()
+
+        try:
+            text = "".join(
+                p.get("text", "")
+                for p in data["candidates"][0]["content"]["parts"]
+            )
+        except (KeyError, IndexError):
+            text = data.get("promptFeedback", {}).get(
+                "blockReason", ""
+            ) or ""
+
+        usage = data.get("usageMetadata", {})
+        in_tokens = usage.get("promptTokenCount", 0)
+        out_tokens = usage.get("candidatesTokenCount", 0)
+        cost = (in_tokens / 1000 * self.cost_per_1k_input) + (
+            out_tokens / 1000 * self.cost_per_1k_output
+        )
+        return ProviderResult(
+            text=text,
+            latency_ms=elapsed_ms,
+            input_tokens=in_tokens,
+            output_tokens=out_tokens,
+            cost_usd=cost,
+            raw=data,
+        )
+
+
+# ---------------------------------------------------------------------------
 # Ollama provider (local models)
 # ---------------------------------------------------------------------------
 class OllamaProvider(BaseProvider):
@@ -285,6 +386,8 @@ PROVIDER_REGISTRY: dict[str, type[BaseProvider]] = {
     "openai": OpenAIProvider,
     "anthropic": AnthropicProvider,
     "ollama": OllamaProvider,
+    "groq": GroqProvider,
+    "gemini": GeminiProvider,
 }
 
 
@@ -305,6 +408,8 @@ __all__ = [
     "OpenAIProvider",
     "AnthropicProvider",
     "OllamaProvider",
+    "GroqProvider",
+    "GeminiProvider",
     "create_provider",
     "PROVIDER_REGISTRY",
 ]
