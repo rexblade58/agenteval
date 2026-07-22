@@ -10,9 +10,9 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from agenteval.evaluator import Evaluator
-from agenteval.providers import MockProvider, Message
+from agenteval.providers import MockProvider, Message, create_provider, PROVIDER_REGISTRY
 from agenteval.report import to_json, to_markdown
-from agenteval.tasks import get_tasks
+from agenteval.tasks import get_tasks, semantic_check, semantic_similarity
 
 
 def test_mock_provider_returns_response():
@@ -96,3 +96,80 @@ def test_unknown_suite_raises():
         assert False, "should have raised"
     except ValueError:
         pass
+
+
+def test_semantic_check_handles_paraphrase():
+    assert semantic_check(
+        "Paris serves as the capital city of France",
+        "The capital of France is Paris.",
+    )
+    assert not semantic_check(
+        "The capital of France is Berlin.",
+        "The capital of France is Paris.",
+    )
+
+
+def test_semantic_similarity_scores():
+    assert semantic_similarity("hello world", "hello world") == 1.0
+    assert semantic_similarity("hello world", "completely different topic") == 0.0
+
+
+def test_evaluator_semantic_scoring_mode():
+    provider = MockProvider()
+    eval_ = Evaluator(provider, suite="qa", scoring="semantic")
+    report = eval_.run_suite()
+    assert report.raw["scoring"] == "semantic"
+    assert report.total_tasks == len(get_tasks("qa"))
+
+
+def test_groq_provider_registered_and_configured():
+    import os
+
+    os.environ["GROQ_API_KEY"] = "test-key"
+    try:
+        provider = create_provider("groq")
+        assert provider.name == "groq"
+        assert provider.base_url == "https://api.groq.com/openai/v1"
+        assert provider.api_key == "test-key"
+    finally:
+        os.environ.pop("GROQ_API_KEY", None)
+
+
+def test_gemini_provider_registered_and_missing_key():
+    import os
+
+    os.environ.pop("GEMINI_API_KEY", None)
+    try:
+        create_provider("gemini")
+        assert False, "should have raised"
+    except ValueError:
+        pass
+
+
+def test_gemini_complete_parses_response():
+    import os
+    from unittest import mock
+
+    from agenteval.providers import GeminiProvider
+
+    class FakeResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {
+                "candidates": [{"content": {"parts": [{"text": "The capital of France is Paris."}]}}],
+                "usageMetadata": {"promptTokenCount": 12, "candidatesTokenCount": 8},
+            }
+
+    os.environ["GEMINI_API_KEY"] = "test-key"
+    try:
+        provider = GeminiProvider(model="gemini-2.0-flash")
+        with mock.patch("httpx.post", return_value=FakeResp()) as post:
+            result = provider.complete([Message(role="user", content="What is the capital of France?")])
+        assert "Paris" in result.text
+        assert result.input_tokens == 12
+        assert result.output_tokens == 8
+        post.assert_called_once()
+    finally:
+        os.environ.pop("GEMINI_API_KEY", None)

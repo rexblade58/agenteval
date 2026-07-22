@@ -49,7 +49,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 
 | Feature | Description |
 | :--- | :--- |
-| **Multi-provider** | OpenAI-compatible APIs, Anthropic, Ollama, local models, mock |
+| **Multi-provider** | OpenAI-compatible APIs, Anthropic, Gemini, Groq, Ollama, local models, mock |
 | **Task suites** | codegen, qa, reasoning, summarization, tool-use (+ custom) |
 | **pass@k** | Run a task N times, pass if any sample succeeds |
 | **Cost tracking** | Per-run USD cost for every provider |
@@ -70,11 +70,11 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | CI pipeline | ✅ Python 3.10/3.11/3.12 + TS typecheck/test |
 | Mock provider (keyless testing) | ✅ Done |
 | Providers: OpenAI, Anthropic, Ollama, mock | ✅ Done |
+| Gemini provider | ✅ Done — `--provider gemini` |
+| Groq provider (free tier) | ✅ Done — `--provider groq` |
+| Semantic scoring (`--scoring semantic`) | ✅ Done |
 | pass@k + cost + latency metrics | ✅ Done |
 | Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
-| Semantic scoring (QA) | 🔜 #2 — see [issue](https://github.com/rexblade58/agenteval/issues/2) |
-| Gemini provider | 🔜 #1 — see [issue](https://github.com/rexblade58/agenteval/issues/1) |
-| Groq provider | 🔜 #3 — see [issue](https://github.com/rexblade58/agenteval/issues/3) |
 
 See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next and [CHANGELOG-style commit history](https://github.com/rexblade58/agenteval/commits/main) for recent progress.
 
@@ -105,6 +105,26 @@ metrics, per-task results) — see `examples/reports/` for samples.
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 agenteval run --provider anthropic --model claude-3-5-sonnet-latest --suite qa
+```
+
+### Google Gemini
+
+```bash
+export GEMINI_API_KEY=AIza...
+agenteval run --provider gemini --model gemini-2.0-flash --suite reasoning
+```
+
+### Groq (free tier)
+
+```bash
+export GROQ_API_KEY=gsk_...
+agenteval run --provider groq --model llama-3.3-70b-versatile --suite codegen
+```
+
+### Semantic scoring (paraphrase-tolerant)
+
+```bash
+agenteval run --provider mock --suite qa --scoring semantic
 ```
 
 ### Local (Ollama)
@@ -178,9 +198,9 @@ Register it in `PROVIDER_REGISTRY` and it works with the CLI, SDK, and reporting
 Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agenteval/issues) — community PRs are very welcome.
 
 - [x] [Web dashboard with historical comparisons](https://github.com/rexblade58/agenteval/issues/4) — `agenteval serve`
-- [ ] [Semantic similarity scoring for QA tasks](https://github.com/rexblade58/agenteval/issues/2)
-- [ ] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1)
-- [ ] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3)
+- [x] [Semantic similarity scoring for QA tasks](https://github.com/rexblade58/agenteval/issues/2) — `--scoring semantic`
+- [x] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1) — `--provider gemini`
+- [x] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3) — `--provider groq`
 - [ ] Human-in-the-loop task review
 - [ ] Adversarial / robustness evaluation
 - [ ] Agent trace evaluation (multi-step tool calls)

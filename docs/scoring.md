@@ -11,6 +11,26 @@ the task checker.
 accuracy = passed_tasks / total_tasks
 ```
 
+## Scoring modes
+
+Two task-scoring modes are available via `--scoring`:
+
+| Mode | Default | How it works |
+| :--- | :--- | :--- |
+| `contains` | ✅ | Reference answer must appear as a substring (case-insensitive). Fast, strict, zero dependencies. |
+| `semantic` | | Token overlap scoring: for short references (1-2 content words) the answer must be fully covered; for longer references a Jaccard similarity over stopword-stripped tokens must meet a threshold. |
+
+Semantic mode is robust to paraphrase — `"Paris serves as the capital city of
+France"` passes against the reference `"The capital of France is Paris."`
+even though substring matching would fail:
+
+```bash
+agenteval run --provider openai --model gpt-4o-mini --suite qa --scoring semantic
+```
+
+The active scoring mode is recorded in the report's `raw.scoring` field.
+It has no effect on tasks with custom checkers.
+
 ## pass@k
 
 For `--n-samples k`, each task is run `k` times and counts as passed if **any**
