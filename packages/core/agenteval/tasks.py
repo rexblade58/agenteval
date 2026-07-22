@@ -12,6 +12,7 @@ codegen, qa, reasoning, summarization, and tool-use.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Callable
 
@@ -57,6 +58,56 @@ def _has_code_blocks(output: str, _reference: str) -> bool:
 def _is_reasonable_length(output: str, _reference: str) -> bool:
     """Summaries and explanations should have meaningful length."""
     return len(output.strip()) > 20
+
+
+# ---------------------------------------------------------------------------
+# Semantic scoring (optional, opt-in)
+# ---------------------------------------------------------------------------
+_STOPWORDS = frozenset({
+    "a", "an", "and", "are", "as", "at", "be", "by", "for", "from", "in",
+    "is", "it", "its", "of", "on", "or", "that", "the", "to", "was", "with",
+})
+
+
+def _content_tokens(text: str) -> set[str]:
+    """Lowercase word tokens with common stopwords removed."""
+    return set(re.findall(r"[a-z0-9']+", text.lower())) - _STOPWORDS
+
+
+def semantic_similarity(output: str, reference: str) -> float:
+    """Token Jaccard similarity between output and reference (0..1)."""
+    a = _content_tokens(output)
+    b = _content_tokens(reference)
+    if not a or not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _reference_coverage(output: str, reference: str) -> float:
+    """Fraction of reference content tokens present in the output (0..1)."""
+    a = _content_tokens(output)
+    b = _content_tokens(reference)
+    if not b:
+        return 0.0
+    return len(a & b) / len(b)
+
+
+def semantic_check(output: str, reference: str, threshold: float = 0.6) -> bool:
+    """Pass if the output is semantically close to the reference answer.
+
+    Robust to paraphrase: 'The capital of France is Paris' vs
+    'Paris serves as the capital city of France' score highly even though
+    substring matching would fail.
+
+    - For short references (1-2 content tokens, e.g. a single answer like
+      "Paris"), the reference must be fully covered by the output.
+    - For longer references, token Jaccard similarity over content words
+      must meet the threshold.
+    """
+    reference_tokens = _content_tokens(reference)
+    if len(reference_tokens) <= 2:
+        return _reference_coverage(output, reference) >= 1.0
+    return semantic_similarity(output, reference) >= threshold
 
 
 # ---------------------------------------------------------------------------
@@ -197,4 +248,10 @@ def get_tasks(suite: str = "all") -> list[Task]:
     return TASK_REGISTRY[suite]
 
 
-__all__ = ["Task", "get_tasks", "TASK_REGISTRY"]
+__all__ = [
+    "Task",
+    "get_tasks",
+    "TASK_REGISTRY",
+    "semantic_check",
+    "semantic_similarity",
+]

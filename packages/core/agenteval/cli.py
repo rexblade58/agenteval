@@ -36,6 +36,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="Task suite to run (default: all)")
     run.add_argument("--n-samples", type=int, default=1, help="Samples per task (pass@k)")
     run.add_argument("--temperature", type=float, default=0.7, help="Sampling temperature")
+    run.add_argument("--scoring", choices=["contains", "semantic"], default="contains",
+                     help="Task scoring mode (default: contains)")
     run.add_argument("--format", choices=["json", "markdown"], default="markdown",
                      help="Output format")
     run.add_argument("--output", default=None, help="Write the report to a file")
@@ -63,7 +65,7 @@ def _run(args: argparse.Namespace) -> int:
         return 1
 
     evaluator = Evaluator(provider, suite=args.suite, n_samples=args.n_samples,
-                          temperature=args.temperature)
+                          temperature=args.temperature, scoring=args.scoring)
     print(f"Running suite '{args.suite}' against {args.provider}/{provider.model}...")
     report = evaluator.run_suite()
 

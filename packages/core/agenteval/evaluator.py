@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .providers import BaseProvider, Message
-from .tasks import Task, get_tasks
+from .tasks import Task, get_tasks, semantic_check
 
 SYSTEM_PROMPT = (
     "You are being evaluated on accuracy and quality. "
@@ -68,11 +68,18 @@ class Evaluator:
         suite: str = "all",
         n_samples: int = 1,
         temperature: float = 0.7,
+        scoring: str = "contains",
     ):
         self.provider = provider
         self.suite = suite
         self.n_samples = n_samples  # pass@k support
         self.temperature = temperature
+        self.scoring = scoring  # "contains" | "semantic"
+
+    def _check(self, task: Task, output: str) -> bool:
+        if self.scoring == "semantic" and task.reference:
+            return semantic_check(output, task.reference)
+        return task.check(output)
 
     def run_task(self, task: Task) -> TaskResult:
         """Run a single task (with n_samples attempts for pass@k)."""
@@ -88,7 +95,7 @@ class Evaluator:
                     TaskResult(
                         task_id=task.id,
                         category=task.category,
-                        passed=task.check(resp.text),
+                        passed=self._check(task, resp.text),
                         latency_ms=elapsed,
                         output=resp.text,
                         input_tokens=resp.input_tokens,
@@ -158,6 +165,7 @@ class Evaluator:
                 "system_prompt": SYSTEM_PROMPT,
                 "n_samples": self.n_samples,
                 "temperature": self.temperature,
+                "scoring": self.scoring,
             },
         )
 
