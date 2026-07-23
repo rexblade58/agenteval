@@ -1,0 +1,126 @@
+name: Evaluate agent
+
+on:
+  workflow_call:
+    inputs:
+      provider:
+        description: LLM provider (mock, openai, anthropic, gemini, groq, ollama)
+        required: false
+        type: string
+        default: mock
+      model:
+        description: Model identifier for the provider
+        required: false
+        type: string
+        default: ""
+      suite:
+        description: Task suite to run (codegen, qa, reasoning, summarization, tool-use, all)
+        required: false
+        type: string
+        default: all
+      scoring:
+        description: Scoring mode (contains, semantic)
+        required: false
+        type: string
+        default: contains
+      n-samples:
+        description: Samples per task (pass@k)
+        required: false
+        type: number
+        default: 1
+      min-accuracy:
+        description: Fail the workflow when accuracy drops below this (0..1)
+        required: false
+        type: number
+        default: 0.7
+      agenteval-ref:
+        description: Git ref of the agenteval repository to use
+        required: false
+        type: string
+        default: main
+      python-version:
+        description: Python version for the runner
+        required: false
+        type: string
+        default: "3.11"
+    secrets:
+      OPENAI_API_KEY:
+        required: false
+      ANTHROPIC_API_KEY:
+        required: false
+      GEMINI_API_KEY:
+        required: false
+      GROQ_API_KEY:
+        required: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout calling repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version }}
+
+      - name: Install AgentEval
+        run: pip install "agenteval @ git+https://github.com/rexblade58/agenteval.git@${{ inputs.agenteval-ref }}"
+
+      - name: Run evaluation
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          MODEL_ARGS=()
+          if [ -n "${{ inputs.model }}" ]; then
+            MODEL_ARGS=(--model "${{ inputs.model }}")
+          fi
+          agenteval run \
+            --provider "${{ inputs.provider }}" \
+            "${MODEL_ARGS[@]}" \
+            --suite "${{ inputs.suite }}" \
+            --scoring "${{ inputs.scoring }}" \
+            --n-samples ${{ inputs.n-samples }} \
+            --format json \
+            --output eval.json
+
+      - name: Gate on minimum accuracy
+        env:
+          MIN_ACCURACY: ${{ inputs.min-accuracy }}
+        run: |
+          python - <<'EOF'
+          import json, os, sys
+
+          with open("eval.json") as fh:
+              report = json.load(fh)
+
+          min_accuracy = float(os.environ["MIN_ACCURACY"])
+          accuracy = report["accuracy"]
+
+          print(f"Provider: {report['provider']} ({report['model']})")
+          print(f"Suite:    {report['suite']}")
+          print(f"Accuracy: {accuracy:.1%}  (required >= {min_accuracy:.1%})")
+          print(f"Tasks:    {report['passed']}/{report['total_tasks']} passed")
+          print(f"Latency:  {report['avg_latency_ms']:.0f} ms avg")
+          print(f"Cost:     ${report['total_cost_usd']:.6f}")
+
+          if accuracy < min_accuracy:
+              print(f"FAIL: accuracy {accuracy:.1%} below threshold {min_accuracy:.1%}")
+              sys.exit(1)
+          print("PASS")
+          EOF
+
+      - name: Upload evaluation report
+        uses: actions/upload-artifact@v4
+        with:
+          name: agenteval-report
+          path: eval.json
+          if-no-files-found: error

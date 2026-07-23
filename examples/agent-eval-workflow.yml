@@ -1,0 +1,29 @@
+name: Evaluate my agent
+
+# Example: use AgentEval's reusable workflow from any repository.
+#
+# Copy this file into YOUR repo at .github/workflows/agent-eval.yml.
+# It installs AgentEval, runs an evaluation, fails if accuracy drops
+# below the threshold, and uploads the JSON report as an artifact.
+#
+# Secrets to add in your repo settings (only the ones you need):
+#   OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY, GROQ_API_KEY
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # weekly regression check, Monday 06:00 UTC
+
+jobs:
+  evaluate:
+    uses: rexblade58/agenteval/.github/workflows/eval.yml@main
+    with:
+      provider: openai
+      model: gpt-4o-mini
+      suite: all
+      scoring: contains
+      n-samples: 2
+      min-accuracy: 0.7
+    secrets:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
