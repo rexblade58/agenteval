@@ -55,6 +55,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | **Cost tracking** | Per-run USD cost for every provider |
 | **CLI + SDK** | Python CLI and TypeScript SDK (typed, tested) |
 | **CI integration** | Non-zero exit below threshold; JSON output |
+| **Reusable workflow** | `uses: rexblade58/agenteval/.github/workflows/eval.yml@main` |
 | **Zero heavy deps** | httpx + rich only — no framework lock-in |
 
 ---
@@ -75,8 +76,9 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | Semantic scoring (`--scoring semantic`) | ✅ Done |
 | pass@k + cost + latency metrics | ✅ Done |
 | Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
+| GitHub Actions reusable workflow | ✅ Done — see [docs](docs/github-actions.md) |
 
-See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next and [CHANGELOG-style commit history](https://github.com/rexblade58/agenteval/commits/main) for recent progress.
+See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next, [GitHub Actions integration](docs/github-actions.md) for CI setup, and the commit history for recent progress.
 
 ## Quick start
 
@@ -201,11 +203,11 @@ Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agentev
 - [x] [Semantic similarity scoring for QA tasks](https://github.com/rexblade58/agenteval/issues/2) — `--scoring semantic`
 - [x] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1) — `--provider gemini`
 - [x] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3) — `--provider groq`
+- [x] GitHub Actions reusable workflow — `uses: .../eval.yml@main`
 - [ ] Human-in-the-loop task review
 - [ ] Adversarial / robustness evaluation
 - [ ] Agent trace evaluation (multi-step tool calls)
 - [ ] Docker image for self-hosting
-- [ ] GitHub Actions reusable workflow
 
 ---
 
