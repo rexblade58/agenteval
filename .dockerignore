@@ -1,0 +1,14 @@
+.git
+.github
+.gitignore
+.gitattributes
+node_modules
+packages/sdk-ts
+examples
+docs
+tests
+__pycache__
+*.pyc
+*.egg-info
+.coverage
+.pytest_cache
