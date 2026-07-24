@@ -56,6 +56,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | **CLI + SDK** | Python CLI and TypeScript SDK (typed, tested) |
 | **CI integration** | Non-zero exit below threshold; JSON output |
 | **Reusable workflow** | `uses: rexblade58/agenteval/.github/workflows/eval.yml@main` |
+| **Docker image** | Multi-arch GHCR image for CLI + dashboard — see [docs](docs/docker.md) |
 | **Zero heavy deps** | httpx + rich only — no framework lock-in |
 
 ---
@@ -77,6 +78,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | pass@k + cost + latency metrics | ✅ Done |
 | Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
 | GitHub Actions reusable workflow | ✅ Done — see [docs](docs/github-actions.md) |
+| Docker image (multi-arch GHCR) | ✅ Done — see [docs](docs/docker.md) |
 
 See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next, [GitHub Actions integration](docs/github-actions.md) for CI setup, and the commit history for recent progress.
 
@@ -204,10 +206,10 @@ Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agentev
 - [x] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1) — `--provider gemini`
 - [x] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3) — `--provider groq`
 - [x] GitHub Actions reusable workflow — `uses: .../eval.yml@main`
+- [x] Docker image for self-hosting — `ghcr.io/rexblade58/agenteval`
 - [ ] Human-in-the-loop task review
 - [ ] Adversarial / robustness evaluation
 - [ ] Agent trace evaluation (multi-step tool calls)
-- [ ] Docker image for self-hosting
 
 ---
 
