@@ -50,6 +50,7 @@ class EvaluationReport:
     total_cost_usd: float
     pass_at_1: float = 0.0
     pass_at_k: float = 0.0
+    robustness: float | None = None
     results: list[TaskResult] = field(default_factory=list)
     category_breakdown: dict[str, dict[str, float]] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)
@@ -148,6 +149,10 @@ class Evaluator:
         for entry in categories.values():
             entry["accuracy"] = entry["passed"] / entry["total"] if entry["total"] else 0.0
 
+        # Robustness = accuracy on adversarial tasks (None when not run)
+        adv = categories.get("adversarial")
+        robustness = adv["accuracy"] if adv else None
+
         return EvaluationReport(
             provider=self.provider.name,
             model=self.provider.model,
@@ -159,6 +164,7 @@ class Evaluator:
             total_cost_usd=cost,
             pass_at_1=accuracy,
             pass_at_k=accuracy,
+            robustness=robustness,
             results=results,
             category_breakdown=categories,
             raw={

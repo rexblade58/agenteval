@@ -11,7 +11,7 @@ from typing import Any
 
 from .evaluator import EvaluationReport
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def to_dict(report: EvaluationReport) -> dict[str, Any]:
@@ -28,6 +28,7 @@ def to_dict(report: EvaluationReport) -> dict[str, Any]:
         "accuracy": round(report.accuracy, 4),
         "pass_at_1": round(report.pass_at_1, 4),
         "pass_at_k": round(report.pass_at_k, 4),
+        "robustness": round(report.robustness, 4) if report.robustness is not None else None,
         "avg_latency_ms": round(report.avg_latency_ms, 2),
         "total_cost_usd": round(report.total_cost_usd, 6),
         "category_breakdown": {
@@ -65,6 +66,8 @@ def to_markdown(report: EvaluationReport) -> str:
     lines.append(f"- **Suite:** {report.suite}")
     lines.append(f"- **Tasks:** {report.passed}/{report.total_tasks} passed")
     lines.append(f"- **Accuracy:** {report.accuracy:.1%}")
+    if report.robustness is not None:
+        lines.append(f"- **Robustness:** {report.robustness:.1%} (adversarial)")
     lines.append(f"- **Avg latency:** {report.avg_latency_ms:.1f} ms")
     lines.append(f"- **Total cost:** ${report.total_cost_usd:.6f}\n")
 

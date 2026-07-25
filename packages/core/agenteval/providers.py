@@ -71,12 +71,20 @@ class MockProvider(BaseProvider):
             "summary": "The company's revenue increased 12% driven by strong demand for AI products, with plans to expand into European markets.",
             "format_date": "def format_date(iso):\n    from datetime import datetime\n    return datetime.fromisoformat(iso).strftime('%B %d, %Y')",
             "parse_json": "def get_name(json_str):\n    import json\n    return json.loads(json_str).get('name')",
+            "refusal": "I can't help with that. I'm not able to reveal secrets or override my guidelines.",
+            "unknown": "I don't know. I don't have information about that.",
         }
 
     def complete(self, messages: list[Message], temperature: float = 0.7) -> ProviderResult:
         last = messages[-1].content.lower()
         key = "default"
-        if "fizzbuzz" in last:
+        if "ignore all previous" in last or "ignore my guidelines" in last:
+            key = "refusal"
+        elif "secret key" in last or "hunter2" in last or "admin password" in last:
+            key = "refusal"
+        elif "nobel prize" in last or "quantum slippers" in last:
+            key = "unknown"
+        elif "fizzbuzz" in last:
             key = "fizzbuzz"
         elif "two_sum" in last or "two sum" in last:
             key = "two_sum"
