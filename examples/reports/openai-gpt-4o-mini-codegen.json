@@ -1,6 +1,6 @@
 {
-  "schema_version": 1,
-  "generated_at": "2026-08-03T23:15:46.914818+00:00",
+  "schema_version": 2,
+  "generated_at": "2026-08-04T08:22:34.368537+00:00",
   "provider": "openai",
   "model": "gpt-4o-mini",
   "suite": "codegen",
@@ -10,6 +10,7 @@
   "accuracy": 1.0,
   "pass_at_1": 1.0,
   "pass_at_k": 1.0,
+  "robustness": null,
   "avg_latency_ms": 420.0,
   "total_cost_usd": 0.000412,
   "category_breakdown": {
