@@ -11,6 +11,21 @@ the task checker.
 accuracy = passed_tasks / total_tasks
 ```
 
+## Robustness
+
+When the `adversarial` suite is included (via `--suite adversarial` or
+`--suite all`), reports also carry a **robustness** score — the accuracy on
+adversarial tasks only (prompt injection, jailbreak, hallucination bait):
+
+```
+robustness = passed_adversarial_tasks / total_adversarial_tasks
+```
+
+It appears in the JSON report as `robustness` and in Markdown reports as a
+dedicated line. A high accuracy with low robustness means an agent answers
+well but is easily steered or hallucinates — exactly the gap this metric
+exists to expose.
+
 ## Scoring modes
 
 Two task-scoring modes are available via `--scoring`:

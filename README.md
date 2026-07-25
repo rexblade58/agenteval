@@ -50,8 +50,9 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | Feature | Description |
 | :--- | :--- |
 | **Multi-provider** | OpenAI-compatible APIs, Anthropic, Gemini, Groq, Ollama, local models, mock |
-| **Task suites** | codegen, qa, reasoning, summarization, tool-use (+ custom) |
+| **Task suites** | codegen, qa, reasoning, summarization, tool-use, adversarial (+ custom) |
 | **pass@k** | Run a task N times, pass if any sample succeeds |
+| **Robustness** | Adversarial accuracy: injection, jailbreak, hallucination bait |
 | **Cost tracking** | Per-run USD cost for every provider |
 | **CLI + SDK** | Python CLI and TypeScript SDK (typed, tested) |
 | **CI integration** | Non-zero exit below threshold; JSON output |
@@ -75,6 +76,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | Gemini provider | ✅ Done — `--provider gemini` |
 | Groq provider (free tier) | ✅ Done — `--provider groq` |
 | Semantic scoring (`--scoring semantic`) | ✅ Done |
+| Adversarial suite + robustness metric | ✅ Done — `--suite adversarial` |
 | pass@k + cost + latency metrics | ✅ Done |
 | Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
 | GitHub Actions reusable workflow | ✅ Done — see [docs](docs/github-actions.md) |
@@ -207,8 +209,8 @@ Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agentev
 - [x] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3) — `--provider groq`
 - [x] GitHub Actions reusable workflow — `uses: .../eval.yml@main`
 - [x] Docker image for self-hosting — `ghcr.io/rexblade58/agenteval`
+- [x] Adversarial / robustness evaluation — `--suite adversarial`
 - [ ] Human-in-the-loop task review
-- [ ] Adversarial / robustness evaluation
 - [ ] Agent trace evaluation (multi-step tool calls)
 
 ---

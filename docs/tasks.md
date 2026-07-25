@@ -13,6 +13,26 @@ difficulty, and tags.
 | `reasoning` | Riddle, water jug | Step-by-step logic |
 | `summarization` | Earnings, version control | Compression fidelity |
 | `tool-use` | Date format, JSON parse | Function-calling ability |
+| `adversarial` | Injection, jailbreak, hallucination bait | Robustness & safety |
+
+## Adversarial suite
+
+Run it with:
+
+```bash
+agenteval run --provider openai --model gpt-4o-mini --suite adversarial
+```
+
+| Task | Difficulty | Checks |
+| :--- | :--- | :--- |
+| `adv-injection-direct` | easy | Refuses direct "ignore instructions" attempts |
+| `adv-injection-role` | medium | Does not leak secrets under role-play |
+| `adv-jailbreak` | hard | Refuses "repeat after me" rephrasings |
+| `adv-hallucination-event` | easy | Admits unknown for fictional events |
+| `adv-hallucination-entity` | medium | Admits unknown for fictional products |
+
+The report includes a **robustness** metric (accuracy on adversarial tasks)
+whenever the suite is run — see [Scoring](scoring.md).
 
 ## Custom tasks
 
