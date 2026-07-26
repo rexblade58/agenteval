@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-from .evaluator import Evaluator
+from .evaluator import EvaluationReport, Evaluator
 from .providers import PROVIDER_REGISTRY, create_provider
 from .report import to_json, to_markdown
 from .tasks import TASK_REGISTRY
@@ -32,8 +32,8 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--provider", default="mock", choices=sorted(PROVIDER_REGISTRY),
                      help="LLM provider (default: mock)")
     run.add_argument("--model", default=None, help="Model identifier")
-    run.add_argument("--suite", default="all", choices=sorted(TASK_REGISTRY),
-                     help="Task suite to run (default: all)")
+    run.add_argument("--suite", default="all", choices=sorted(TASK_REGISTRY) + ["traces"],
+                     help="Task suite to run (default: all; traces for multi-step tool use)")
     run.add_argument("--n-samples", type=int, default=1, help="Samples per task (pass@k)")
     run.add_argument("--temperature", type=float, default=0.7, help="Sampling temperature")
     run.add_argument("--scoring", choices=["contains", "semantic"], default="contains",
@@ -64,6 +64,10 @@ def _run(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
+    # Trace suite: multi-step tool-call evaluation
+    if args.suite == "traces":
+        return _run_traces(provider, args)
+
     evaluator = Evaluator(provider, suite=args.suite, n_samples=args.n_samples,
                           temperature=args.temperature, scoring=args.scoring)
     print(f"Running suite '{args.suite}' against {args.provider}/{provider.model}...")
@@ -85,6 +89,70 @@ def _run(args: argparse.Namespace) -> int:
     return 0 if report.accuracy >= 0.5 else 2
 
 
+def _run_traces(provider: Any, args: argparse.Namespace) -> int:
+    """Run the trace suite and emit an EvaluationReport with trace metrics."""
+    from .trace_suites import TRACE_REGISTRY  # noqa: F401 - registers scenarios
+    from .traces import TraceEvaluator
+
+    print(f"Running suite 'traces' against {provider.name}/{provider.model}...")
+    evaluator = TraceEvaluator(provider)
+    results = evaluator.run_suite()
+
+    success_count = sum(1 for r in results if r.success)
+    scenarios = len(results)
+    success_rate = success_count / scenarios if scenarios else 0.0
+    avg_validity = sum(r.tool_validity for r in results) / scenarios if scenarios else 0.0
+    avg_efficiency = sum(r.efficiency for r in results) / scenarios if scenarios else 0.0
+
+    trace_metrics = {
+        "scenarios": scenarios,
+        "success_count": success_count,
+        "success_rate": round(success_rate, 4),
+        "avg_tool_validity": round(avg_validity, 4),
+        "avg_efficiency": round(avg_efficiency, 4),
+        "results": [
+            {
+                "trace_id": r.trace_id,
+                "success": r.success,
+                "steps": r.steps,
+                "max_steps": r.max_steps,
+                "tool_calls_total": r.tool_calls_total,
+                "tool_calls_valid": r.tool_calls_valid,
+                "tool_validity": round(r.tool_validity, 4),
+                "efficiency": round(r.efficiency, 4),
+                "error": r.error,
+            }
+            for r in results
+        ],
+    }
+
+    report = EvaluationReport(
+        provider=provider.name,
+        model=provider.model,
+        suite="traces",
+        total_tasks=scenarios,
+        passed=success_count,
+        accuracy=success_rate,
+        avg_latency_ms=0.0,
+        total_cost_usd=0.0,
+        trace_metrics=trace_metrics,
+    )
+
+    if args.format == "json":
+        text = to_json(report)
+    else:
+        text = to_markdown(report)
+
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as fh:
+            fh.write(text)
+        print(f"Report written to {args.output}")
+    else:
+        print(text)
+
+    return 0 if success_rate >= 0.5 else 2
+
+
 def _list_providers() -> int:
     print("Available providers:")
     for name in sorted(PROVIDER_REGISTRY):
@@ -97,6 +165,12 @@ def _list_suites() -> int:
     for name in sorted(TASK_REGISTRY):
         tasks = TASK_REGISTRY[name]
         print(f"  {name} ({len(tasks)} tasks)")
+    try:
+        from .trace_suites import TRACE_REGISTRY  # noqa: F401 - populates registry
+        for name in sorted(TRACE_REGISTRY):
+            print(f"  {name} ({len(TRACE_REGISTRY[name])} traces)")
+    except ImportError:
+        pass
     return 0
 
 

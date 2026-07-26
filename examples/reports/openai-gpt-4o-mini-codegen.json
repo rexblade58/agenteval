@@ -1,6 +1,6 @@
 {
-  "schema_version": 2,
-  "generated_at": "2026-08-04T08:22:34.368537+00:00",
+  "schema_version": 3,
+  "generated_at": "2026-08-04T08:28:10.804105+00:00",
   "provider": "openai",
   "model": "gpt-4o-mini",
   "suite": "codegen",

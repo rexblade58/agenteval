@@ -51,6 +51,7 @@ class EvaluationReport:
     pass_at_1: float = 0.0
     pass_at_k: float = 0.0
     robustness: float | None = None
+    trace_metrics: dict[str, Any] | None = None
     results: list[TaskResult] = field(default_factory=list)
     category_breakdown: dict[str, dict[str, float]] = field(default_factory=dict)
     raw: dict[str, Any] = field(default_factory=dict)

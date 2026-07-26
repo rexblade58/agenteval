@@ -11,12 +11,12 @@ from typing import Any
 
 from .evaluator import EvaluationReport
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def to_dict(report: EvaluationReport) -> dict[str, Any]:
     """Convert a report into a plain serializable dict."""
-    return {
+    data: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "provider": report.provider,
@@ -51,6 +51,9 @@ def to_dict(report: EvaluationReport) -> dict[str, Any]:
             for r in report.results
         ],
     }
+    if report.trace_metrics is not None:
+        data["trace"] = report.trace_metrics
+    return data
 
 
 def to_json(report: EvaluationReport, pretty: bool = True) -> str:
@@ -81,15 +84,33 @@ def to_markdown(report: EvaluationReport) -> str:
             )
         lines.append("")
 
-    lines.append("## Task results\n")
-    lines.append("| Task | Category | Result | Latency |")
-    lines.append("|------|----------|--------|---------|")
-    for r in report.results:
-        status = "PASS" if r.passed else "FAIL"
-        if r.error:
-            status += f" ({r.error[:40]})"
-        lines.append(f"| {r.task_id} | {r.category} | {status} | {r.latency_ms:.0f} ms |")
-    lines.append("")
+    if report.results:
+        lines.append("## Task results\n")
+        lines.append("| Task | Category | Result | Latency |")
+        lines.append("|------|----------|--------|---------|")
+        for r in report.results:
+            status = "PASS" if r.passed else "FAIL"
+            if r.error:
+                status += f" ({r.error[:40]})"
+            lines.append(f"| {r.task_id} | {r.category} | {status} | {r.latency_ms:.0f} ms |")
+        lines.append("")
+
+    if report.trace_metrics:
+        tr = report.trace_metrics
+        lines.append("## Trace results\n")
+        lines.append(f"- **Success rate:** {tr.get('success_rate', 0.0):.0%} "
+                     f"({tr.get('success_count', 0)}/{tr.get('scenarios', 0)})")
+        lines.append(f"- **Avg tool validity:** {tr.get('avg_tool_validity', 0.0):.0%}")
+        lines.append(f"- **Avg efficiency:** {tr.get('avg_efficiency', 0.0):.0%}\n")
+        lines.append("| Trace | Success | Steps | Tool calls | Validity |")
+        lines.append("|-------|---------|-------|-------------|----------|")
+        for entry in tr.get("results", []):
+            status = "PASS" if entry["success"] else "FAIL"
+            lines.append(
+                f"| {entry['trace_id']} | {status} | {entry['steps']}/{entry['max_steps']} "
+                f"| {entry['tool_calls_total']} | {entry['tool_validity']:.0%} |"
+            )
+        lines.append("")
 
     return "\n".join(lines)
 
