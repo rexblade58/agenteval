@@ -15,6 +15,9 @@ difficulty, and tags.
 | `tool-use` | Date format, JSON parse | Function-calling ability |
 | `adversarial` | Injection, jailbreak, hallucination bait | Robustness & safety |
 
+Multi-step agent behavior (tool loops) is evaluated separately via
+`--suite traces` — see [Trace evaluation](traces.md).
+
 ## Adversarial suite
 
 Run it with:

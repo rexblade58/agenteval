@@ -51,6 +51,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | :--- | :--- |
 | **Multi-provider** | OpenAI-compatible APIs, Anthropic, Gemini, Groq, Ollama, local models, mock |
 | **Task suites** | codegen, qa, reasoning, summarization, tool-use, adversarial (+ custom) |
+| **Trace evaluation** | Multi-step tool-call loops with success/validity/efficiency scores |
 | **pass@k** | Run a task N times, pass if any sample succeeds |
 | **Robustness** | Adversarial accuracy: injection, jailbreak, hallucination bait |
 | **Cost tracking** | Per-run USD cost for every provider |
@@ -77,6 +78,7 @@ agenteval run --provider openai --model gpt-4o-mini --suite all
 | Groq provider (free tier) | ✅ Done — `--provider groq` |
 | Semantic scoring (`--scoring semantic`) | ✅ Done |
 | Adversarial suite + robustness metric | ✅ Done — `--suite adversarial` |
+| Agent trace evaluation | ✅ Done — `--suite traces` |
 | pass@k + cost + latency metrics | ✅ Done |
 | Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
 | GitHub Actions reusable workflow | ✅ Done — see [docs](docs/github-actions.md) |
@@ -170,8 +172,9 @@ agenteval/
 │   ├── core/               Python evaluation engine
 │   │   └── agenteval/
 │   │       ├── cli.py      argparse CLI
-│   │       ├── providers.py  OpenAI / Anthropic / Ollama / mock
+│   │       ├── providers.py  OpenAI / Anthropic / Gemini / Groq / Ollama / mock
 │   │       ├── evaluator.py  pass@k engine + scoring
+│   │       ├── traces.py     multi-step tool-call trace engine
 │   │       ├── tasks.py      built-in task suites
 │   │       └── report.py     JSON + Markdown reports
 │   └── sdk-ts/             TypeScript SDK
@@ -210,8 +213,8 @@ Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agentev
 - [x] GitHub Actions reusable workflow — `uses: .../eval.yml@main`
 - [x] Docker image for self-hosting — `ghcr.io/rexblade58/agenteval`
 - [x] Adversarial / robustness evaluation — `--suite adversarial`
+- [x] Agent trace evaluation — `--suite traces`
 - [ ] Human-in-the-loop task review
-- [ ] Agent trace evaluation (multi-step tool calls)
 
 ---
 
