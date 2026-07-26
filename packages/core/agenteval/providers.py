@@ -73,12 +73,33 @@ class MockProvider(BaseProvider):
             "parse_json": "def get_name(json_str):\n    import json\n    return json.loads(json_str).get('name')",
             "refusal": "I can't help with that. I'm not able to reveal secrets or override my guidelines.",
             "unknown": "I don't know. I don't have information about that.",
+            "trace_search": 'TOOL {"name": "search_flights", "args": {"from": "MNL", "to": "SFO"}}',
+            "trace_book": 'TOOL {"name": "book_flight", "args": {"flight": "AY-123"}}',
+            "trace_confirm": "I've booked your flight: AY-123 from MNL to SFO.",
+            "trace_build_run": 'TOOL {"name": "run_build", "args": {}}',
+            "trace_build_patch": 'TOOL {"name": "patch_file", "args": {"path": "main.py"}}',
+            "trace_build_done": "The build passes now.",
         }
 
     def complete(self, messages: list[Message], temperature: float = 0.7) -> ProviderResult:
         last = messages[-1].content.lower()
         key = "default"
-        if "ignore all previous" in last or "ignore my guidelines" in last:
+        # Trace scenarios: multi-step TOOL responses driven by observations
+        if "book the cheapest one" in last:
+            key = "trace_search"
+        elif "available: ay-123" in last:
+            key = "trace_book"
+        elif "booked flight ay-123" in last:
+            key = "trace_confirm"
+        elif "the build is failing on main" in last:
+            key = "trace_build_run"
+        elif "fail: syntax error" in last:
+            key = "trace_build_patch"
+        elif "patched main.py" in last:
+            key = "trace_build_run"
+        elif last.startswith("observation:") and last.strip().endswith("pass"):
+            key = "trace_build_done"
+        elif "ignore all previous" in last or "ignore my guidelines" in last:
             key = "refusal"
         elif "secret key" in last or "hunter2" in last or "admin password" in last:
             key = "refusal"
