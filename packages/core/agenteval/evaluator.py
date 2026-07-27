@@ -29,6 +29,8 @@ class TaskResult:
     passed: bool
     latency_ms: float
     output: str = ""
+    prompt: str = ""
+    reference: str = ""
     input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float = 0.0
@@ -100,6 +102,8 @@ class Evaluator:
                         passed=self._check(task, resp.text),
                         latency_ms=elapsed,
                         output=resp.text,
+                        prompt=task.prompt,
+                        reference=task.reference,
                         input_tokens=resp.input_tokens,
                         output_tokens=resp.output_tokens,
                         cost_usd=resp.cost_usd,

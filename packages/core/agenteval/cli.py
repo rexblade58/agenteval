@@ -41,6 +41,17 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--format", choices=["json", "markdown"], default="markdown",
                      help="Output format")
     run.add_argument("--output", default=None, help="Write the report to a file")
+    run.add_argument("--review", default=None, metavar="FILE",
+                     help="Write failed tasks to a review queue for human judgment")
+
+    review = sub.add_parser("review", help="Review failed tasks (human-in-the-loop)")
+    review.add_argument("file", help="Review queue file written by `run --review`")
+    review.add_argument("--apply", action="store_true",
+                        help="Merge human judgments into a re-scored report (JSON to stdout)")
+    review.add_argument("--interactive", action="store_true",
+                        help="Judge each pending task in a prompt loop, then save")
+    review.add_argument("--yes", action="store_true",
+                        help="With --interactive: mark everything pass without prompting")
 
     serve = sub.add_parser("serve", help="Start the local web dashboard")
     serve.add_argument("--dir", default="reports",
@@ -85,8 +96,54 @@ def _run(args: argparse.Namespace) -> int:
     else:
         print(text)
 
+    if args.review:
+        from .review import write_review_queue
+
+        written = write_review_queue(Path(args.review), report)
+        if written:
+            print(f"Review queue written to {args.review} ({written} failed task(s) to judge)")
+            print("Run: agenteval review <file> --interactive  then  --apply")
+        else:
+            print(f"No failed tasks - no review queue written")
+
     # Exit non-zero if accuracy is below 50% (useful for CI)
     return 0 if report.accuracy >= 0.5 else 2
+
+
+def _review(args: argparse.Namespace) -> int:
+    from .review import apply_review, interactive_review, load_review_queue
+
+    path = Path(args.file)
+
+    if args.interactive:
+        updated = interactive_review(path, yes=args.yes)
+        print(f"Updated {updated} judgment(s) in {path}")
+        return 0
+
+    if args.apply:
+        meta, entries = load_review_queue(path)
+        if not meta:
+            print("error: no meta header in review queue (was it written by `run --review`?)",
+                  file=sys.stderr)
+            return 1
+        pending = [e for e in entries if e.status == "pending"]
+        if pending:
+            print(f"warning: {len(pending)} pending judgment(s) - run "
+                  f"`agenteval review {args.file} --interactive` first", file=sys.stderr)
+        result = apply_review(meta, entries)
+        print(json.dumps(result, indent=2))
+        return 0
+
+    meta, entries = load_review_queue(path)
+    pending = sum(1 for e in entries if e.status == "pending")
+    print(f"Review queue: {path}")
+    print(f"  tasks judged: {len(entries) - pending}/{len(entries)}")
+    print(f"  pending: {pending}")
+    print(f"  suite: {meta.get('suite', '?')}  provider: {meta.get('provider', '?')}")
+    for e in entries:
+        print(f"  [{e.status:7s}] {e.task_id} ({e.category})")
+    print("\nNext: agenteval review <file> --interactive  then  --apply")
+    return 0
 
 
 def _run_traces(provider: Any, args: argparse.Namespace) -> int:
@@ -187,6 +244,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         return _run(args)
+    if args.command == "review":
+        return _review(args)
     if args.command == "serve":
         return _serve(args)
     if args.command == "list-providers":
