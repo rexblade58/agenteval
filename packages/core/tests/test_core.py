@@ -194,6 +194,98 @@ def test_trace_suite_cli_flow():
     assert parsed["trace"]["success_count"] == 2
 
 
+def test_review_queue_round_trip(tmp_path):
+    from agenteval.review import apply_review, load_review_queue, write_review_queue
+    from agenteval.providers import ProviderResult
+
+    provider = MockProvider()
+    report = Evaluator(provider, suite="qa").run_suite()  # mock passes everything
+
+    # Force some failures to have a reviewable queue
+    report.results[0].passed = False
+    report.results[0].prompt = "What is the capital of France?"
+    report.results[0].reference = "Paris"
+    report.results[0].output = "The capital is Berlin."
+    report.passed = 1
+    report.total_tasks = 2
+
+    queue = tmp_path / "review.jsonl"
+    written = write_review_queue(queue, report)
+    assert written == 1
+
+    meta, entries = load_review_queue(queue)
+    assert meta["total_tasks"] == 2
+    assert meta["passed"] == 1
+    assert len(entries) == 1
+    assert entries[0].status == "pending"
+    assert entries[0].prompt == "What is the capital of France?"
+    assert entries[0].reference == "Paris"
+
+
+def test_review_apply_rescores(tmp_path):
+    from agenteval.review import apply_review, load_review_queue, write_review_queue
+
+    provider = MockProvider()
+    report = Evaluator(provider, suite="qa").run_suite()
+    report.results[0].passed = False
+    report.passed = 1
+    report.total_tasks = 2
+
+    queue = tmp_path / "review.jsonl"
+    write_review_queue(queue, report)
+
+    meta, entries = load_review_queue(queue)
+    entries[0].status = "pass"  # human overrides the checker
+    result = apply_review(meta, entries)
+    assert result["passed"] == 2
+    assert result["accuracy"] == 1.0
+    assert result["reviewed"] is True
+
+    entries[0].status = "skip"  # or excludes it
+    result = apply_review(meta, entries)
+    assert result["total_tasks"] == 1
+    assert result["skipped"] == 1
+
+
+def test_review_cli_flow(tmp_path):
+    import subprocess
+    import sys
+
+    from pathlib import Path
+
+    from agenteval.review import load_review_queue, write_review_queue
+
+    core_dir = Path(__file__).resolve().parent.parent
+    env = {"PYTHONPATH": str(core_dir), "PATH": "PATH"}
+
+    # Build a failing report and a queue
+    provider = MockProvider()
+    report = Evaluator(provider, suite="qa").run_suite()
+    report.results[0].passed = False
+    report.passed = 1
+    report.total_tasks = 2
+    queue = tmp_path / "review.jsonl"
+    write_review_queue(queue, report)
+
+    # Mark as pass via the interactive path (non-interactive --yes)
+    proc = subprocess.run(
+        [sys.executable, "-m", "agenteval.cli", "review", str(queue), "--interactive", "--yes"],
+        capture_output=True, text=True, env=env, cwd=core_dir.parent,
+    )
+    assert proc.returncode == 0, proc.stderr
+
+    # Apply and check the re-scored JSON
+    proc = subprocess.run(
+        [sys.executable, "-m", "agenteval.cli", "review", str(queue), "--apply"],
+        capture_output=True, text=True, env=env, cwd=core_dir.parent,
+    )
+    assert proc.returncode == 0, proc.stderr
+    parsed = json.loads(proc.stdout)
+    assert parsed["passed"] == 2
+    assert parsed["accuracy"] == 1.0
+    assert parsed["judgments"][0]["status"] == "pass"
+
+
 def test_report_markdown_has_tables():
     provider = MockProvider()
     report = Evaluator(provider, suite="codegen").run_suite()
