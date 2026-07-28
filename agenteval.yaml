@@ -1,0 +1,39 @@
+# AgentEval Arena configuration
+# See docs/arena.md for the full reference.
+#
+# This file is OPTIONAL. Without it, AgentEval auto-detects the project
+# from manifest files and uses built-in agent adapters.
+
+# project:
+#   language: python
+#   install: pip install -e .[dev]
+#   test: [python -m pytest]
+#   build: []
+#   lint: [ruff check .]
+#   typecheck: []
+
+# arena:
+#   timeout: 900
+#   parallel: true
+
+# Register custom agents (any executable) without touching the codebase.
+# agents:
+#   my-agent:
+#     command: my-agent run "{task}"
+#     timeout: 900
+#     shell: false
+#     description: My custom coding agent
+
+# verification:
+#   verify:
+#     tests:
+#       - python -m pytest
+#   regression: true
+
+# scoring:
+#   functional: 0.50
+#   regression: 0.20
+#   build: 0.10
+#   quality: 0.10
+#   cost: 0.05
+#   speed: 0.05

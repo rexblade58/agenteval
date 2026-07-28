@@ -2,12 +2,15 @@
 
 # 🤖 AgentEval
 
-**Open source agent evaluation framework — score any AI agent across providers with standardized, reproducible benchmarks.**
+**Make AI agents prove their code works.**
+
+AgentEval runs coding agents against the same real software task, executes
+their patches in isolated repositories, verifies the results with real
+tests, and tells you which agent actually performed best.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](packages/core/pyproject.toml)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-blue.svg)](packages/sdk-ts/package.json)
-[![CI](https://github.com/rexblade58/agenteval/actions/workflows/ci.yml/badge.svg)](https://github.com/rexblade58/agenteval/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
 </div>
@@ -16,152 +19,101 @@
 
 ## Why AgentEval?
 
-Every team building AI agents needs to answer one question:
+Every team adopting AI coding agents needs one answer:
 
-> **How good is my agent, actually?**
+> **Which agent actually fixed the bug?**
 
-There are frameworks for orchestration (LangChain), observability (Langfuse), and tracking (MLflow) — but **no standardized, provider-agnostic way to score an agent's performance**. AgentEval fills that gap:
-
-- **One command** → comparable scores across OpenAI, Anthropic, Ollama, and local models
-- **Standardized task suites** for the capabilities that matter: codegen, QA, reasoning, summarization, tool-use
-- **Real metrics**: accuracy, pass@k, latency, cost per run
-- **CI-ready**: fail builds when agent quality drops below a threshold
+Most "agent comparisons" are vibes: who *looks* like they did better. AgentEval
+replaces opinions with evidence — each agent works on the exact same task in
+its own isolated copy of the repository, and the results are verified with
+real test/build/lint commands, not LLM judges.
 
 ```bash
-pip install agenteval
-agenteval run --provider openai --model gpt-4o-mini --suite all
+agenteval arena \
+  --repo . \
+  --task "fix checkout discount calculation" \
+  --agents codex,claude,opencode
 ```
 
 ```text
-# AgentEval Report
+Agent        Tests    Build   Regression   Cost     Time    Score
+─────────────────────────────────────────────────────────────────
+Codex        47/47    PASS    0            $0.31    4m12s   96
+Claude       47/47    PASS    1            $0.48    3m51s   92
+OpenCode     39/42    FAIL    3            $0.08    5m03s   71
 
-- Provider: openai (gpt-4o-mini)
-- Suite: all
-- Tasks: 8/10 passed
-- Accuracy: 80.0%
-- Avg latency: 420.3 ms
-- Total cost: $0.000412
+🏆 Winner: Codex
 ```
 
 ---
-
-## Features
-
-| Feature | Description |
-| :--- | :--- |
-| **Multi-provider** | OpenAI-compatible APIs, Anthropic, Gemini, Groq, Ollama, local models, mock |
-| **Task suites** | codegen, qa, reasoning, summarization, tool-use, adversarial (+ custom) |
-| **Trace evaluation** | Multi-step tool-call loops with success/validity/efficiency scores |
-| **Human review** | `run --review` queue + `review --interactive/--apply` re-scoring |
-| **pass@k** | Run a task N times, pass if any sample succeeds |
-| **Robustness** | Adversarial accuracy: injection, jailbreak, hallucination bait |
-| **Cost tracking** | Per-run USD cost for every provider |
-| **CLI + SDK** | Python CLI and TypeScript SDK (typed, tested) |
-| **CI integration** | Non-zero exit below threshold; JSON output |
-| **Reusable workflow** | `uses: rexblade58/agenteval/.github/workflows/eval.yml@main` |
-| **Docker image** | Multi-arch GHCR image for CLI + dashboard — see [docs](docs/docker.md) |
-| **Zero heavy deps** | httpx + rich only — no framework lock-in |
-
----
-
-## Status
-
-**Actively developed.** Current state of the repo:
-
-| Area | Status |
-| :--- | :--- |
-| Python core (CLI, providers, evaluator, reports) | ✅ Done — 9 unit tests |
-| TypeScript SDK (types + mock runner + CLI wrapper) | ✅ Done — 4 unit tests, strict TS |
-| CI pipeline | ✅ Python 3.10/3.11/3.12 + TS typecheck/test |
-| Mock provider (keyless testing) | ✅ Done |
-| Providers: OpenAI, Anthropic, Ollama, mock | ✅ Done |
-| Gemini provider | ✅ Done — `--provider gemini` |
-| Groq provider (free tier) | ✅ Done — `--provider groq` |
-| Semantic scoring (`--scoring semantic`) | ✅ Done |
-| Adversarial suite + robustness metric | ✅ Done — `--suite adversarial` |
-| Agent trace evaluation | ✅ Done — `--suite traces` |
-| Human-in-the-loop review | ✅ Done — see [docs](docs/review.md) |
-| pass@k + cost + latency metrics | ✅ Done |
-| Web dashboard (`agenteval serve`) | ✅ Done — local, zero-dep |
-| GitHub Actions reusable workflow | ✅ Done — see [docs](docs/github-actions.md) |
-| Docker image (multi-arch GHCR) | ✅ Done — see [docs](docs/docker.md) |
-
-See the [issues](https://github.com/rexblade58/agenteval/issues) for what's next, [GitHub Actions integration](docs/github-actions.md) for CI setup, and the commit history for recent progress.
 
 ## Quick start
 
-### Mock (no API key)
-
 ```bash
-git clone https://github.com/rexblade58/agenteval.git
-cd agenteval
 pip install -e packages/core
-agenteval run --provider mock --suite all
+
+# check your environment
+agenteval doctor
+
+# battle installed coding agents on the current repo
+agenteval arena \
+  --repo . \
+  --task "fix the failing checkout test" \
+  --agents codex,claude
 ```
 
-### OpenAI
+No coding agents installed? The generic `command` adapter runs any
+executable, and custom agents are one YAML block away:
 
-```bash
-export OPENAI_API_KEY=sk-...
-agenteval run --provider openai --model gpt-4o-mini --suite codegen \
-  --format json --output reports/openai-codegen.json
+```yaml
+# agenteval.yaml
+agents:
+  my-agent:
+    command: my-agent run "{task}"
+    timeout: 900
 ```
 
-Reports are written in a stable JSON schema (`schema_version`, `generated_at`,
-metrics, per-task results) — see `examples/reports/` for samples.
+See [Arena docs](docs/arena.md) for agents, verification, scoring, and
+results.
 
-### Anthropic
+---
+
+## Two workflows
+
+### 🏟️ AgentEval Arena — coding agents
+
+| Capability | Status |
+| :--- | :--- |
+| Agent abstraction (codex, claude, gemini, opencode, aider, command) | ✅ |
+| Isolated git worktrees (same starting commit per agent) | ✅ |
+| Remote repository support (cloned, never modified) | ✅ |
+| Automatic project detection (Node, Python, Rust, Go, Java, PHP, Flutter) | ✅ |
+| Real verification: tests, build, lint, typecheck | ✅ |
+| Baseline regression detection (tests fixed vs new failures) | ✅ |
+| Transparent weighted scoring (functional 50% > regression 20% > ...) | ✅ |
+| Parallel agent execution | ✅ |
+| Result states: PASS / PARTIAL / FAIL / TIMEOUT / AGENT_ERROR / ... | ✅ |
+| JSON / Markdown / HTML reports with full reproducibility metadata | ✅ |
+| `agenteval.yaml` configuration | ✅ |
+| `agenteval doctor` environment check | ✅ |
+| GitHub issue mode (`agenteval issue <url>`) | 🔜 |
+| Winning-solution PR creation | 🔜 |
+| Playwright browser verification | 🔜 |
+| Community leaderboard (opt-in submissions) | 🔜 |
+
+### 🧪 AgentEval Model Evaluation — LLM responses
+
+The original evaluation framework is fully preserved and unchanged:
+
+- 6 providers: OpenAI, Anthropic, Gemini, Groq, Ollama, mock
+- 7 suites: codegen, qa, reasoning, summarization, tool-use, adversarial, traces
+- Semantic scoring, pass@k, cost/latency tracking, robustness metric
+- Local web dashboard (`agenteval serve`), human-in-the-loop review
+- Reusable GitHub Actions workflow + Docker image
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
-agenteval run --provider anthropic --model claude-3-5-sonnet-latest --suite qa
-```
-
-### Google Gemini
-
-```bash
-export GEMINI_API_KEY=AIza...
-agenteval run --provider gemini --model gemini-2.0-flash --suite reasoning
-```
-
-### Groq (free tier)
-
-```bash
-export GROQ_API_KEY=gsk_...
-agenteval run --provider groq --model llama-3.3-70b-versatile --suite codegen
-```
-
-### Semantic scoring (paraphrase-tolerant)
-
-```bash
-agenteval run --provider mock --suite qa --scoring semantic
-```
-
-### Local (Ollama)
-
-```bash
-agenteval run --provider ollama --model llama3.2 --suite reasoning
-```
-
-### Web dashboard
-
-```bash
-agenteval run --provider mock --suite all --output reports/mock.json
+agenteval run --provider openai --model gpt-4o-mini --suite all
 agenteval serve --dir reports
-# → http://127.0.0.1:8000  (accuracy/cost/latency trends, provider comparison)
-```
-
-### TypeScript SDK
-
-```typescript
-import { evaluateMock, runCli } from '@agenteval/sdk';
-
-const report = runCli({
-  provider: 'openai',
-  model: 'gpt-4o-mini',
-  suite: 'codegen',
-});
-console.log(`Accuracy: ${(report.accuracy * 100).toFixed(1)}%`);
 ```
 
 ---
@@ -171,65 +123,60 @@ console.log(`Accuracy: ${(report.accuracy * 100).toFixed(1)}%`);
 ```
 agenteval/
 ├── packages/
-│   ├── core/               Python evaluation engine
+│   ├── core/               Python package
 │   │   └── agenteval/
+│   │       ├── arena/      coding-agent battles
+│   │       │   ├── agents.py     agent adapters (codex, claude, ...)
+│   │       │   ├── workspace.py  git worktree isolation
+│   │       │   ├── project.py    ecosystem detection
+│   │       │   ├── verifiers.py  test/build/lint/typecheck
+│   │       │   ├── regression.py baseline comparison
+│   │       │   ├── scoring.py    transparent weighted scoring
+│   │       │   ├── arena.py      orchestrator
+│   │       │   └── results.py    portable result schema
 │   │       ├── cli.py      argparse CLI
-│   │       ├── providers.py  OpenAI / Anthropic / Gemini / Groq / Ollama / mock
-│   │       ├── evaluator.py  pass@k engine + scoring
-│   │       ├── traces.py     multi-step tool-call trace engine
-│   │       ├── tasks.py      built-in task suites
+│   │       ├── providers.py  model providers
+│   │       ├── evaluator.py  model evaluation engine
+│   │       ├── traces.py     multi-step tool-call evaluation
+│   │       ├── tasks.py      task suites
 │   │       └── report.py     JSON + Markdown reports
 │   └── sdk-ts/             TypeScript SDK
 ├── examples/               Runnable examples + sample reports
-├── docs/                   Guides
-└── .github/workflows/      CI (tests, lint, publish)
+├── docs/                   Guides (arena, providers, scoring, ...)
+└── .github/workflows/      CI + reusable evaluation workflow
 ```
-
----
-
-## Adding a provider
-
-Providers implement a single method:
-
-```python
-class MyProvider(BaseProvider):
-    name = "my-provider"
-
-    def complete(self, messages, temperature=0.7) -> ProviderResult:
-        # call your API, return ProviderResult(text=..., latency_ms=..., ...)
-        ...
-```
-
-Register it in `PROVIDER_REGISTRY` and it works with the CLI, SDK, and reporting — no other changes needed.
 
 ---
 
 ## Roadmap
 
-Planned work is tracked as [GitHub issues](https://github.com/rexblade58/agenteval/issues) — community PRs are very welcome.
+See [issues](https://github.com/rexblade58/agenteval/issues) for live
+tracking. Current focus: **Arena Phase 2+**.
 
-- [x] [Web dashboard with historical comparisons](https://github.com/rexblade58/agenteval/issues/4) — `agenteval serve`
-- [x] [Semantic similarity scoring for QA tasks](https://github.com/rexblade58/agenteval/issues/2) — `--scoring semantic`
-- [x] [Google Gemini provider](https://github.com/rexblade58/agenteval/issues/1) — `--provider gemini`
-- [x] [Groq provider with free-tier models](https://github.com/rexblade58/agenteval/issues/3) — `--provider groq`
-- [x] GitHub Actions reusable workflow — `uses: .../eval.yml@main`
-- [x] Docker image for self-hosting — `ghcr.io/rexblade58/agenteval`
-- [x] Adversarial / robustness evaluation — `--suite adversarial`
-- [x] Agent trace evaluation — `--suite traces`
-- [x] Human-in-the-loop task review — `review --interactive/--apply`
+- [ ] GitHub issue mode (`agenteval issue https://github.com/.../issues/42`)
+- [ ] OpenCode/Gemini/Aider adapter hardening
+- [ ] Playwright browser verification (UI checks, console errors, screenshots)
+- [ ] Winning-solution PR creation with evidence in the description
+- [ ] Docker sandbox isolation for untrusted agent runs
+- [ ] Portable benchmark packs + opt-in community leaderboard
+- [ ] Shareable `AgentEval Verified ✓` badges
 
-## Ideas beyond the current roadmap
-
-- [ ] LLM-as-judge scoring (a stronger model scores outputs against rubrics)
-- [ ] Report history and diffing (compare runs over time)
-- [ ] Plugin architecture for community task packs
-- [ ] Streaming `--jsonl` output for long suites
+Completed (model evaluation): dashboard, semantic scoring, Gemini/Groq
+providers, adversarial suite, trace evaluation, human review, reusable CI,
+Docker image.
 
 ---
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports, provider PRs, and new task suites are all welcome.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Adding an agent adapter, verifier,
+or language runner is a focused, well-documented task:
+
+```text
+feat(agent): add Kimi coding agent adapter
+feat(runner): add Laravel support
+feat(verifier): add Lighthouse performance verifier
+```
 
 ## License
 

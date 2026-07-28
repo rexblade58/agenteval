@@ -14,11 +14,71 @@ more providers and task suites it supports, the more useful it becomes.
 
 ## What we need help with
 
+- **New agents** — implement `AgentAdapter` for a coding agent CLI
 - **New providers** — implement `BaseProvider` and register it
+- **New verifiers** — implement `Verifier` (tests, browser, visual, ...)
 - **New task suites** — add tasks to `agenteval/tasks.py`
 - **Better scoring** — semantic similarity, LLM-as-judge, partial credit
-- **Web dashboard** — visualize historical evaluation results
+- **Arena scenarios** — fixture repositories and trace scenarios
 - **Docs** — tutorials, API references, migration guides
+
+## Adding a coding agent adapter
+
+Agents are the arena equivalent of providers. Implement `AgentAdapter` in
+`agenteval/arena/agents.py` (or subclass `CommandAgent` for CLI wrappers)
+and register it in `AGENT_REGISTRY`:
+
+```python
+from agenteval.arena.agents import CommandAgent
+
+class MyAgent(CommandAgent):
+    name = "my-agent"
+    display_name = "My Agent CLI"
+    description = "Runs my-agent in headless mode"
+
+    def __init__(self, timeout_s: int = 900, extra_args: str = ""):
+        template = f"my-agent run {extra_args} {{task}}"
+        super().__init__(template, name="my-agent", timeout_s=timeout_s)
+
+    def available(self) -> bool:
+        return shutil.which("my-agent") is not None
+```
+
+Add a unit test with a mock executable — never call paid APIs in CI.
+
+## Adding a verifier
+
+```python
+from agenteval.arena.verifiers import Verifier, VerificationResult
+
+class MyVerifier(Verifier):
+    name = "security"
+
+    def verify(self, workspace, profile) -> VerificationResult:
+        # run real commands, return structured VerificationResult
+        ...
+```
+
+Register it in `VERIFIER_REGISTRY` and it appears in `agenteval verifiers list`.
+
+## Adding a language runner
+
+Extend `detect()` in `agenteval/arena/project.py` with the ecosystem's
+manifest files and default install/test/build/lint/typecheck commands.
+Detection must never run commands — it only *suggests* them.
+
+## Running tests
+
+```bash
+pip install -e "packages/core[dev]"
+pytest packages/core/tests
+
+# TypeScript SDK
+cd packages/sdk-ts
+npm install
+npm test          # vitest
+npm run typecheck # tsc --noEmit
+```
 
 ## Adding a provider
 
@@ -117,6 +177,18 @@ the report schema (also used by the future web dashboard). Regenerate them with:
 ```bash
 python examples/generate_sample_reports.py
 ```
+
+## Arena test fixtures
+
+`packages/core/tests/fixtures/` holds small fixture repositories used by the
+arena tests:
+
+- `python-app/` — a pytest project with a deliberately broken discount
+  function (baseline has failing tests; `fix_discount.py` simulates a
+  fixing agent)
+- `sleep.py` — an agent that hangs (timeout tests)
+
+Add fixture repositories for new ecosystems as needed.
 
 ## Code of conduct
 
