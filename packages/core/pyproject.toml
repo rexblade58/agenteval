@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agenteval"
-version = "0.1.0"
-description = "Open source agent evaluation framework - score any AI agent across providers"
+version = "0.2.0"
+description = "Open source agent evaluation and battle platform - make AI agents prove their code works"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -31,7 +31,8 @@ agenteval = "agenteval.cli:main"
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 
 [tool.setuptools]
-packages = ["agenteval"]
+packages = ["agenteval", "agenteval.arena"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+norecursedirs = ["fixtures", "node_modules", "dist", ".git"]

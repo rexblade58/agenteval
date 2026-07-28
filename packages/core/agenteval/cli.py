@@ -4,6 +4,10 @@ Usage:
   agenteval run --provider openai --model gpt-4o-mini --suite all
   agenteval run --provider mock --suite codegen
   agenteval serve --dir reports
+  agenteval arena --repo . --task "fix the failing checkout test" --agents codex,claude
+  agenteval agents list
+  agenteval verifiers list
+  agenteval doctor
   agenteval list-providers
   agenteval list-suites
 """
@@ -14,6 +18,14 @@ import argparse
 import json
 import sys
 from pathlib import Path
+
+# Windows consoles default to cp1252 and choke on emoji in reports
+if sys.stdout and sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
 
 from .evaluator import EvaluationReport, Evaluator
 from .providers import PROVIDER_REGISTRY, create_provider
@@ -61,6 +73,28 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("list-providers", help="List available providers")
     sub.add_parser("list-suites", help="List available task suites")
+
+    arena = sub.add_parser("arena", help="Battle coding agents against a real task in isolated workspaces")
+    arena.add_argument("--repo", default=".", help="Local repo path or git URL (default: .)")
+    arena.add_argument("--task", default="", help="Task description (or path to a task .md/.yaml file)")
+    arena.add_argument("--agents", default="", help="Comma-separated agent names (codex,claude,opencode,...)")
+    arena.add_argument("--runs", type=int, default=1, help="Attempts per agent (default: 1)")
+    arena.add_argument("--parallel", action="store_true", help="Run agents concurrently")
+    arena.add_argument("--timeout", type=int, default=900, help="Per-agent timeout in seconds (default: 900)")
+    arena.add_argument("--commit", default=None, help="Starting commit (default: HEAD)")
+    arena.add_argument("--verifiers", default="", help="Comma-separated verifiers (tests,build,lint,typecheck)")
+    arena.add_argument("--format", choices=["json", "markdown", "html"], default="markdown",
+                       help="Report format (default: markdown)")
+    arena.add_argument("--output-dir", default=None, help="Directory for report artifacts (default: .agenteval/runs/<timestamp>)")
+    arena.add_argument("--keep-worktrees", action="store_true", help="Do not remove worktrees after the run")
+
+    agents_sub = sub.add_parser("agents", help="List available agent adapters")
+    agents_sub.add_argument("list", nargs="?", default="list", help="Subcommand (only 'list')")
+
+    verifiers_sub = sub.add_parser("verifiers", help="List available verifiers")
+    verifiers_sub.add_argument("list", nargs="?", default="list", help="Subcommand (only 'list')")
+
+    sub.add_parser("doctor", help="Check environment readiness for arena evaluation")
 
     return parser
 
@@ -238,6 +272,129 @@ def _serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_arena(args: argparse.Namespace) -> int:
+    from .arena.arena import ArenaRunner
+    from .arena.config import (
+        load_agent_configs,
+        load_profile_override,
+        load_verify_commands,
+        load_weights,
+        config_from_repo,
+    )
+    from .arena.results import write_artifacts
+
+    repo = Path(args.repo)
+    task_text, task_file = _load_task(args.task, repo)
+
+    config = config_from_repo(
+        repo,
+        {
+            "repo": args.repo,
+            "task": task_text,
+            "task_file": task_file,
+            "agents": [a.strip() for a in args.agents.split(",") if a.strip()],
+            "runs": args.runs,
+            "parallel": args.parallel,
+            "timeout_s": args.timeout,
+            "commit": args.commit,
+            "verifiers": [v.strip() for v in args.verifiers.split(",") if v.strip()],
+            "keep_worktrees": args.keep_worktrees,
+        },
+    )
+    config.agent_configs = load_agent_configs(repo)
+    config.verify_commands = load_verify_commands(repo)
+    config.weights = load_weights(repo)
+    config.profile = load_profile_override(repo)
+    config.quiet = args.format == "json"
+
+    if not config.task:
+        print("error: a task is required (--task \"...\" or a task file)", file=sys.stderr)
+        return 1
+    if not config.agents:
+        print("error: at least one agent is required (--agents codex,claude,...)", file=sys.stderr)
+        return 1
+
+    runner = ArenaRunner(config)
+    result = runner.run()
+
+    run_dir = args.output_dir
+    if run_dir is None:
+        from datetime import datetime, timezone
+
+        stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H-%M-%S")
+        run_dir = str(Path(".agenteval") / "runs" / stamp)
+    paths = write_artifacts(result, Path(run_dir))
+
+    if args.format == "json":
+        print(result.to_json())
+    elif args.format == "html":
+        print(result.to_html())
+    else:
+        print(result.to_markdown())
+
+    print(f"\nArtifacts: {paths['json'].parent}", file=sys.stderr)
+    return 0
+
+
+def _load_task(task: str, repo: Path) -> tuple[str, Path | None]:
+    """Resolve --task: inline text or a task file (markdown/yaml)."""
+    if not task:
+        return "", None
+    candidate = Path(task)
+    if not candidate.is_file():
+        candidate = repo / task
+    if candidate.is_file():
+        return candidate.read_text(encoding="utf-8").strip(), candidate
+    return task, None
+
+
+def _agents_list() -> int:
+    from .arena.agents import list_agents
+
+    print("Available agent adapters:")
+    for info in list_agents():
+        marker = " (not installed)" if not _agent_installed(info["name"]) else ""
+        print(f"  {info['name']:<12} {info['display_name']:<16} {info['description']}{marker}")
+    return 0
+
+
+def _agent_installed(name: str) -> bool:
+    if name == "command":
+        return True
+    from .arena.agents import AGENT_REGISTRY
+
+    cls = AGENT_REGISTRY.get(name)
+    if cls is None:
+        return False
+    try:
+        return cls().available()
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def _verifiers_list() -> int:
+    from .arena.verifiers import list_verifiers
+
+    print("Available verifiers:")
+    for info in list_verifiers():
+        print(f"  {info['name']:<12} {info['verifier']}")
+    return 0
+
+
+def _doctor() -> int:
+    from .arena.doctor import critical_ok, run_doctor
+
+    checks = run_doctor()
+    print("AgentEval Doctor\n")
+    for check in checks:
+        symbol = "✓" if check.ok else "✗"
+        detail = f"  {check.detail}" if check.detail else ""
+        print(f"{symbol} {check.name}{detail}")
+    print("\nReady for arena evaluation." if critical_ok(checks)
+          else "\nMissing required tooling: install git and Python first.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -248,6 +405,14 @@ def main(argv: list[str] | None = None) -> int:
         return _review(args)
     if args.command == "serve":
         return _serve(args)
+    if args.command == "arena":
+        return _run_arena(args)
+    if args.command == "agents":
+        return _agents_list()
+    if args.command == "verifiers":
+        return _verifiers_list()
+    if args.command == "doctor":
+        return _doctor()
     if args.command == "list-providers":
         return _list_providers()
     if args.command == "list-suites":

@@ -22,3 +22,7 @@ dist/
 .coverage
 htmlcov/
 .pytest_cache/
+
+# Arena run artifacts
+.agenteval/
+.agenteval-worktrees-*/
