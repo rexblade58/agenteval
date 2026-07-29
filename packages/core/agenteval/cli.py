@@ -94,6 +94,18 @@ def build_parser() -> argparse.ArgumentParser:
     verifiers_sub = sub.add_parser("verifiers", help="List available verifiers")
     verifiers_sub.add_argument("list", nargs="?", default="list", help="Subcommand (only 'list')")
 
+    issue = sub.add_parser("issue", help="Turn a GitHub issue into an arena battle")
+    issue.add_argument("url", help="GitHub issue URL (https://github.com/<owner>/<repo>/issues/<n>)")
+    issue.add_argument("--agents", default="", help="Comma-separated agent names")
+    issue.add_argument("--runs", type=int, default=1, help="Attempts per agent")
+    issue.add_argument("--parallel", action="store_true", help="Run agents concurrently")
+    issue.add_argument("--timeout", type=int, default=900, help="Per-agent timeout in seconds")
+    issue.add_argument("--format", choices=["json", "markdown", "html"], default="markdown",
+                       help="Report format (default: markdown)")
+    issue.add_argument("--output-dir", default=None, help="Artifact directory")
+    issue.add_argument("--github-comment", action="store_true",
+                       help="Post the result back as a comment on the issue")
+
     sub.add_parser("doctor", help="Check environment readiness for arena evaluation")
 
     return parser
@@ -273,6 +285,72 @@ def _serve(args: argparse.Namespace) -> int:
 
 
 def _run_arena(args: argparse.Namespace) -> int:
+    repo = Path(args.repo)
+    task_text, task_file = _load_task(args.task, repo)
+    return _execute_arena(
+        repo=repo,
+        task_text=task_text,
+        task_file=task_file,
+        agents=[a.strip() for a in args.agents.split(",") if a.strip()],
+        runs=args.runs,
+        parallel=args.parallel,
+        timeout_s=args.timeout,
+        commit=args.commit,
+        verifiers=[v.strip() for v in args.verifiers.split(",") if v.strip()],
+        keep_worktrees=args.keep_worktrees,
+        fmt=args.format,
+        output_dir=args.output_dir,
+    )
+
+
+def _run_issue(args: argparse.Namespace) -> int:
+    from .arena.issues import IssueError, fetch_issue
+
+    print(f"Fetching issue {args.url} ...")
+    try:
+        issue = fetch_issue(args.url)
+    except IssueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"  #{issue.number} {issue.title}  ({issue.state})")
+    if issue.state == "closed":
+        print("warning: issue is closed; task may still be valid", file=sys.stderr)
+
+    task_text = issue.task_text
+    code = _execute_arena(
+        repo=issue.clone_url,
+        task_text=task_text,
+        task_file=None,
+        agents=[a.strip() for a in args.agents.split(",") if a.strip()],
+        runs=args.runs,
+        parallel=args.parallel,
+        timeout_s=args.timeout,
+        commit=None,
+        verifiers=[],
+        keep_worktrees=False,
+        fmt=args.format,
+        output_dir=args.output_dir,
+        github_comment=(issue, task_text) if args.github_comment else None,
+    )
+    return code
+
+
+def _execute_arena(
+    repo: Path | str,
+    task_text: str,
+    task_file: Path | None,
+    agents: list[str],
+    runs: int,
+    parallel: bool,
+    timeout_s: int,
+    commit: str | None,
+    verifiers: list[str],
+    keep_worktrees: bool,
+    fmt: str,
+    output_dir: str | None,
+    github_comment: tuple[Any, str] | None = None,
+) -> int:
     from .arena.arena import ArenaRunner
     from .arena.config import (
         load_agent_configs,
@@ -283,29 +361,35 @@ def _run_arena(args: argparse.Namespace) -> int:
     )
     from .arena.results import write_artifacts
 
-    repo = Path(args.repo)
-    task_text, task_file = _load_task(args.task, repo)
-
+    repo_path = Path(repo) if not _is_url(repo) else None
     config = config_from_repo(
-        repo,
+        repo_path or Path("."),
         {
-            "repo": args.repo,
+            "repo": str(repo),
             "task": task_text,
             "task_file": task_file,
-            "agents": [a.strip() for a in args.agents.split(",") if a.strip()],
-            "runs": args.runs,
-            "parallel": args.parallel,
-            "timeout_s": args.timeout,
-            "commit": args.commit,
-            "verifiers": [v.strip() for v in args.verifiers.split(",") if v.strip()],
-            "keep_worktrees": args.keep_worktrees,
+            "agents": agents,
+            "runs": runs,
+            "parallel": parallel,
+            "timeout_s": timeout_s,
+            "commit": commit,
+            "verifiers": verifiers,
+            "keep_worktrees": keep_worktrees,
         },
     )
-    config.agent_configs = load_agent_configs(repo)
-    config.verify_commands = load_verify_commands(repo)
-    config.weights = load_weights(repo)
-    config.profile = load_profile_override(repo)
-    config.quiet = args.format == "json"
+    if repo_path is not None:
+        config.agent_configs = load_agent_configs(repo_path)
+        config.verify_commands = load_verify_commands(repo_path)
+        config.weights = load_weights(repo_path)
+        config.profile = load_profile_override(repo_path)
+    else:
+        # Remote repos: read custom agents/config from the current directory
+        cwd = Path.cwd()
+        config.agent_configs = load_agent_configs(cwd)
+        config.verify_commands = load_verify_commands(cwd)
+        config.weights = load_weights(cwd)
+        config.profile = load_profile_override(cwd)
+    config.quiet = fmt == "json"
 
     if not config.task:
         print("error: a task is required (--task \"...\" or a task file)", file=sys.stderr)
@@ -317,7 +401,7 @@ def _run_arena(args: argparse.Namespace) -> int:
     runner = ArenaRunner(config)
     result = runner.run()
 
-    run_dir = args.output_dir
+    run_dir = output_dir
     if run_dir is None:
         from datetime import datetime, timezone
 
@@ -325,15 +409,30 @@ def _run_arena(args: argparse.Namespace) -> int:
         run_dir = str(Path(".agenteval") / "runs" / stamp)
     paths = write_artifacts(result, Path(run_dir))
 
-    if args.format == "json":
+    if fmt == "json":
         print(result.to_json())
-    elif args.format == "html":
+    elif fmt == "html":
         print(result.to_html())
     else:
         print(result.to_markdown())
 
+    if github_comment:
+        issue, task_text_from_issue = github_comment
+        from .arena.github import ReportError, build_comment, post_issue_comment
+
+        try:
+            comment = build_comment(result)
+            url = post_issue_comment(issue.owner, issue.repo, issue.number, comment)
+            print(f"Result posted: {url}", file=sys.stderr)
+        except ReportError as exc:
+            print(f"warning: could not post comment: {exc}", file=sys.stderr)
+
     print(f"\nArtifacts: {paths['json'].parent}", file=sys.stderr)
     return 0
+
+
+def _is_url(value: str | Path) -> bool:
+    return str(value).startswith(("https://", "http://", "git@", "ssh://", "git://"))
 
 
 def _load_task(task: str, repo: Path) -> tuple[str, Path | None]:
@@ -407,6 +506,8 @@ def main(argv: list[str] | None = None) -> int:
         return _serve(args)
     if args.command == "arena":
         return _run_arena(args)
+    if args.command == "issue":
+        return _run_issue(args)
     if args.command == "agents":
         return _agents_list()
     if args.command == "verifiers":

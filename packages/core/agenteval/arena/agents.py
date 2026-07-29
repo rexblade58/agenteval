@@ -269,6 +269,11 @@ def create_agent(name: str, timeout_s: int = 900, config: dict[str, Any] | None 
         raise ValueError(
             f"unknown agent '{name}'. Available: {', '.join(sorted(AGENT_REGISTRY))}"
         )
+    if name == "command":
+        raise ValueError(
+            "the 'command' agent requires a command - configure it in agenteval.yaml "
+            "(agents: section) or use a built-in agent (codex, claude, ...)"
+        )
     return AGENT_REGISTRY[name](timeout_s=timeout_s)
 
 
