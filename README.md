@@ -96,7 +96,8 @@ results.
 | JSON / Markdown / HTML reports with full reproducibility metadata | ✅ |
 | `agenteval.yaml` configuration | ✅ |
 | `agenteval doctor` environment check | ✅ |
-| GitHub issue mode (`agenteval issue <url>`) | 🔜 |
+| GitHub issue mode (`agenteval issue <url>`) | ✅ |
+| GitHub comment reporting (`--github-comment`) | ✅ |
 | Winning-solution PR creation | 🔜 |
 | Playwright browser verification | 🔜 |
 | Community leaderboard (opt-in submissions) | 🔜 |
@@ -153,7 +154,7 @@ agenteval/
 See [issues](https://github.com/rexblade58/agenteval/issues) for live
 tracking. Current focus: **Arena Phase 2+**.
 
-- [ ] GitHub issue mode (`agenteval issue https://github.com/.../issues/42`)
+- [x] GitHub issue mode (`agenteval issue https://github.com/.../issues/42`)
 - [ ] OpenCode/Gemini/Aider adapter hardening
 - [ ] Playwright browser verification (UI checks, console errors, screenshots)
 - [ ] Winning-solution PR creation with evidence in the description

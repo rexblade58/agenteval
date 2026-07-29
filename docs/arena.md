@@ -68,6 +68,37 @@ agenteval arena \
   --agents codex,claude
 ```
 
+## GitHub issue mode
+
+Turn any GitHub issue into a battle: the title and body become the task,
+the matching repository is cloned at its default branch, and the arena runs
+against it.
+
+```bash
+agenteval issue \
+  https://github.com/user/repository/issues/42 \
+  --agents codex,claude,opencode
+```
+
+- Public issues work without authentication
+- Private repos work with `GH_TOKEN` (or `GITHUB_TOKEN`) set
+- Closed issues produce a warning but still run
+- The issue number, title, and body are recorded in the report for
+  reproducibility
+
+Post the result back as an issue comment (explicit opt-in):
+
+```bash
+agenteval issue \
+  https://github.com/user/repository/issues/42 \
+  --agents codex,claude \
+  --github-comment
+```
+
+The comment includes the ranking table, tests/build/regression evidence,
+cost, runtime, and the winning agent. Nothing is posted without
+`--github-comment`.
+
 ## Agents
 
 | Name | Adapter | Command used |
