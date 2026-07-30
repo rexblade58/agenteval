@@ -87,6 +87,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Report format (default: markdown)")
     arena.add_argument("--output-dir", default=None, help="Directory for report artifacts (default: .agenteval/runs/<timestamp>)")
     arena.add_argument("--keep-worktrees", action="store_true", help="Do not remove worktrees after the run")
+    arena.add_argument("--create-pr", action="store_true",
+                       help="Push the winner's solution as a branch and open a PR (requires GH_TOKEN)")
 
     agents_sub = sub.add_parser("agents", help="List available agent adapters")
     agents_sub.add_argument("list", nargs="?", default="list", help="Subcommand (only 'list')")
@@ -105,6 +107,8 @@ def build_parser() -> argparse.ArgumentParser:
     issue.add_argument("--output-dir", default=None, help="Artifact directory")
     issue.add_argument("--github-comment", action="store_true",
                        help="Post the result back as a comment on the issue")
+    issue.add_argument("--create-pr", action="store_true",
+                       help="Push the winner's solution as a branch and open a PR (requires GH_TOKEN)")
 
     sub.add_parser("doctor", help="Check environment readiness for arena evaluation")
 
@@ -300,6 +304,7 @@ def _run_arena(args: argparse.Namespace) -> int:
         keep_worktrees=args.keep_worktrees,
         fmt=args.format,
         output_dir=args.output_dir,
+        create_pr=args.create_pr,
     )
 
 
@@ -332,6 +337,7 @@ def _run_issue(args: argparse.Namespace) -> int:
         fmt=args.format,
         output_dir=args.output_dir,
         github_comment=(issue, task_text) if args.github_comment else None,
+        create_pr=args.create_pr,
     )
     return code
 
@@ -350,6 +356,7 @@ def _execute_arena(
     fmt: str,
     output_dir: str | None,
     github_comment: tuple[Any, str] | None = None,
+    create_pr: bool = False,
 ) -> int:
     from .arena.arena import ArenaRunner
     from .arena.config import (
@@ -375,6 +382,7 @@ def _execute_arena(
             "commit": commit,
             "verifiers": verifiers,
             "keep_worktrees": keep_worktrees,
+            "create_pr": create_pr,
         },
     )
     if repo_path is not None:

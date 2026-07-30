@@ -43,6 +43,7 @@ class ArenaConfig:
     keep_worktrees: bool = False
     max_parallel: int = 4
     quiet: bool = False
+    create_pr: bool = False
 
 
 class ArenaRunner:
@@ -229,7 +230,7 @@ class ArenaRunner:
             attempts.sort(key=lambda r: r.run_index)
             self._finalize(attempts, self.config.weights)
 
-            return ArenaResult(
+            result = ArenaResult(
                 task=self.config.task,
                 task_file=str(self.config.task_file) if self.config.task_file else None,
                 repository=repo,
@@ -245,8 +246,23 @@ class ArenaRunner:
                 results=attempts,
                 agenteval_version=__version__,
             )
+
+            if self.config.create_pr:
+                self._create_winner_pr(result)
+
+            return result
         finally:
             self._manager.close()
+
+    def _create_winner_pr(self, result: ArenaResult) -> None:
+        """Explicitly publish the winning solution as a PR (opt-in only)."""
+        from .pr import PullRequestError, create_winner_pr
+
+        try:
+            url = create_winner_pr(result, self._manager.repo_path)
+            self._log(f"Pull request created: {url}")
+        except PullRequestError as exc:
+            self._log(f"warning: could not create pull request: {exc}")
 
     def _build_agent(self, name: str) -> AgentAdapter:
         from .agents import AGENT_REGISTRY, create_agent

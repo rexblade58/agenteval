@@ -120,6 +120,7 @@ def config_from_repo(repo: Path, cli: dict[str, Any]) -> ArenaConfig:
         verifiers=verifiers or ["tests", "build", "lint", "typecheck"],
         runs=int(cli.get("runs") or 1),
         keep_worktrees=bool(cli.get("keep_worktrees")),
+        create_pr=bool(cli.get("create_pr")),
     )
 
 

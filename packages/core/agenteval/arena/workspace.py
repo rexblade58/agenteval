@@ -95,6 +95,13 @@ class WorktreeManager:
             raise WorkspaceError(f"clone failed: {result.stderr.strip() or result.stdout.strip()}")
         return root / "repo", root
 
+    @property
+    def repo_path(self) -> Path:
+        """Path to the git repository the worktrees are created from."""
+        if self._local_repo is None:
+            raise WorkspaceError("no repository")
+        return self._local_repo
+
     def create(self, label: str) -> Path:
         """Create a detached worktree at the base commit. Returns its path."""
         if self._local_repo is None:
