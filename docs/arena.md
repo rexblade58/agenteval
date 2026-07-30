@@ -99,6 +99,35 @@ The comment includes the ranking table, tests/build/regression evidence,
 cost, runtime, and the winning agent. Nothing is posted without
 `--github-comment`.
 
+## Winning-solution pull requests
+
+Publish the winner's diff as a branch and open a pull request with the
+full evidence block in the description:
+
+```bash
+agenteval arena \
+  --repo . \
+  --task "fix the checkout discount" \
+  --agents codex,claude \
+  --create-pr
+```
+
+- The winner's captured diff is applied onto a fresh branch
+  (`agenteval/<agent>-<commit>`) from the starting commit — arena
+  worktrees are never involved
+- The PR description includes the task, starting commit, ranking table,
+  tests/build/regression evidence, cost, runtime, changed files, and the
+  AgentEval version
+- Requires `GH_TOKEN` (or `GITHUB_TOKEN`) and push access to `origin`
+- **Never runs implicitly** — only with explicit `--create-pr`
+
+```bash
+agenteval issue \
+  https://github.com/user/repository/issues/42 \
+  --agents codex,claude \
+  --create-pr
+```
+
 ## Agents
 
 | Name | Adapter | Command used |

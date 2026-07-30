@@ -98,7 +98,7 @@ results.
 | `agenteval doctor` environment check | ✅ |
 | GitHub issue mode (`agenteval issue <url>`) | ✅ |
 | GitHub comment reporting (`--github-comment`) | ✅ |
-| Winning-solution PR creation | 🔜 |
+| Winning-solution PR creation (`--create-pr`) | ✅ |
 | Playwright browser verification | 🔜 |
 | Community leaderboard (opt-in submissions) | 🔜 |
 
@@ -155,9 +155,9 @@ See [issues](https://github.com/rexblade58/agenteval/issues) for live
 tracking. Current focus: **Arena Phase 2+**.
 
 - [x] GitHub issue mode (`agenteval issue https://github.com/.../issues/42`)
+- [x] Winning-solution PR creation (`--create-pr`)
 - [ ] OpenCode/Gemini/Aider adapter hardening
 - [ ] Playwright browser verification (UI checks, console errors, screenshots)
-- [ ] Winning-solution PR creation with evidence in the description
 - [ ] Docker sandbox isolation for untrusted agent runs
 - [ ] Portable benchmark packs + opt-in community leaderboard
 - [ ] Shareable `AgentEval Verified ✓` badges
