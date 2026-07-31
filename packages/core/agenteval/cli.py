@@ -361,6 +361,7 @@ def _execute_arena(
     from .arena.arena import ArenaRunner
     from .arena.config import (
         load_agent_configs,
+        load_browser_config,
         load_profile_override,
         load_verify_commands,
         load_weights,
@@ -390,6 +391,7 @@ def _execute_arena(
         config.verify_commands = load_verify_commands(repo_path)
         config.weights = load_weights(repo_path)
         config.profile = load_profile_override(repo_path)
+        config.browser_config = load_browser_config(repo_path)
     else:
         # Remote repos: read custom agents/config from the current directory
         cwd = Path.cwd()
@@ -397,7 +399,12 @@ def _execute_arena(
         config.verify_commands = load_verify_commands(cwd)
         config.weights = load_weights(cwd)
         config.profile = load_profile_override(cwd)
+        config.browser_config = load_browser_config(cwd)
     config.quiet = fmt == "json"
+
+    # Browser verification is opt-in via config (avoids surprising Playwright installs)
+    if config.browser_config and "browser" not in config.verifiers:
+        config.verifiers = list(config.verifiers) + ["browser"]
 
     if not config.task:
         print("error: a task is required (--task \"...\" or a task file)", file=sys.stderr)

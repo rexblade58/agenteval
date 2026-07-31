@@ -74,10 +74,14 @@ class ArenaScore:
 def _tests_score(tests: VerificationResult | None) -> DimensionScore:
     if tests is None:
         return DimensionScore("functional", DEFAULT_WEIGHTS["functional"], 0.0, "no test run")
-    if tests.error and not tests.commands:
-        return DimensionScore("functional", DEFAULT_WEIGHTS["functional"], 0.0, tests.error)
     if not tests.total_commands:
-        return DimensionScore("functional", DEFAULT_WEIGHTS["functional"], 1.0, "no tests configured")
+        # No tests configured for this project - neutral, not a failure
+        return DimensionScore(
+            "functional",
+            DEFAULT_WEIGHTS["functional"],
+            1.0,
+            tests.error or "no tests configured",
+        )
     score = tests.passed_commands / tests.total_commands
     return DimensionScore(
         "functional",
@@ -153,6 +157,7 @@ def score_attempt(
     build: VerificationResult | None = None,
     lint: VerificationResult | None = None,
     typecheck: VerificationResult | None = None,
+    browser: VerificationResult | None = None,
     cost_usd: float = 0.0,
     duration_s: float = 0.0,
     max_cost: float = 0.0,
@@ -184,11 +189,16 @@ def score_attempt(
     for dim in dimensions:
         dim.weight = w.get(dim.name, dim.weight)
 
-    # Hard gate: tests must actually pass. An LLM judge cannot override this.
+    # Hard gates: tests and (when configured) browser verification must pass.
+    # An LLM judge cannot override these.
     tests_dim = next(d for d in dimensions if d.name == "functional")
+    browser_failed = browser is not None and not browser.passed and browser.total_commands > 0
     if tests_dim.score == 0.0 and tests is not None and tests.total_commands > 0:
         total = 0.0
         disqual = "hard tests failed"
+    elif browser_failed:
+        total = round(sum(d.weight * d.score for d in dimensions) * 100 * 0.5, 1)
+        disqual = f"browser verification failed: {browser.error}"
     else:
         total = sum(d.weight * d.score for d in dimensions) * 100
         disqual = None

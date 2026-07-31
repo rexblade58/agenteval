@@ -44,6 +44,7 @@ class ArenaConfig:
     max_parallel: int = 4
     quiet: bool = False
     create_pr: bool = False
+    browser_config: dict[str, Any] | None = None
 
 
 class ArenaRunner:
@@ -81,6 +82,11 @@ class ArenaRunner:
             return LintVerifier(commands, timeout_s=self.config.timeout_s)
         if name == "typecheck":
             return TypecheckVerifier(commands, timeout_s=self.config.timeout_s)
+        if name == "browser":
+            from .browser import BrowserConfig, BrowserVerifier
+
+            config = BrowserConfig.from_dict(self.config.browser_config)
+            return BrowserVerifier(config=config)
         raise ValueError(f"unknown verifier '{name}'")
 
     def _run_baseline(self) -> None:
@@ -122,7 +128,7 @@ class ArenaRunner:
             run.diff_stat = diff.diff_stat
             run.git_diff = diff.git_diff
 
-            tests = build = lint = typecheck = None
+            tests = build = lint = typecheck = browser = None
             if "tests" in self.config.verifiers:
                 tests = self._verifier("tests").verify(workspace, self._profile)
             if "build" in self.config.verifiers:
@@ -131,6 +137,8 @@ class ArenaRunner:
                 lint = self._verifier("lint").verify(workspace, self._profile)
             if "typecheck" in self.config.verifiers:
                 typecheck = self._verifier("typecheck").verify(workspace, self._profile)
+            if "browser" in self.config.verifiers:
+                browser = self._verifier("browser").verify(workspace, self._profile)
 
             regression = compare(
                 baseline_tests=self._baseline_tests,
@@ -153,6 +161,7 @@ class ArenaRunner:
                 build=build,
                 lint=lint,
                 typecheck=typecheck,
+                browser=browser,
                 regression=regression,
             )
         except Exception as exc:  # noqa: BLE001 - arena must never die silently
@@ -188,6 +197,7 @@ class ArenaRunner:
                 build=result.build,
                 lint=result.lint,
                 typecheck=result.typecheck,
+                browser=result.browser,
                 cost_usd=result.run.cost_usd,
                 duration_s=result.run.duration_s,
                 max_cost=max_cost,

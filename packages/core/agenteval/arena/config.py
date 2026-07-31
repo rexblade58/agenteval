@@ -44,6 +44,17 @@ def load_weights(repo: Path) -> dict[str, float]:
     return {k: float(v) for k, v in scoring.items() if isinstance(v, (int, float))}
 
 
+def load_browser_config(repo: Path) -> dict[str, Any] | None:
+    """Load the browser: section of agenteval.yaml, or None."""
+    data = _load_file(repo)
+    browser = data.get("browser", {}) if data else {}
+    if not isinstance(browser, dict) or not browser:
+        return None
+    if browser.get("enabled") is False:
+        return {"enabled": False}
+    return dict(browser)
+
+
 def load_profile_override(repo: Path) -> ProjectProfile | None:
     """Load a project: section as an explicit profile, or None."""
     data = _load_file(repo)
@@ -129,5 +140,6 @@ __all__ = [
     "load_verify_commands",
     "load_weights",
     "load_profile_override",
+    "load_browser_config",
     "config_from_repo",
 ]

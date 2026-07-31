@@ -36,6 +36,7 @@ class AgentResult:
     build: VerificationResult | None = None
     lint: VerificationResult | None = None
     typecheck: VerificationResult | None = None
+    browser: VerificationResult | None = None
     regression: RegressionReport | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -59,6 +60,7 @@ class AgentResult:
                 "build": self.build.to_dict() if self.build else None,
                 "lint": self.lint.to_dict() if self.lint else None,
                 "typecheck": self.typecheck.to_dict() if self.typecheck else None,
+                "browser": self.browser.to_dict() if self.browser else None,
             },
             "regression": self.regression.to_dict() if self.regression else None,
         }
@@ -167,6 +169,8 @@ class ArenaResult:
                 lines.append(f"- Cost: ${r.run.cost_usd:.6f}")
                 if r.run.error:
                     lines.append(f"- Error: {r.run.error}")
+                if r.browser and r.browser.error:
+                    lines.append(f"- Browser: {r.browser.error}")
                 if r.run.files_changed:
                     lines.append(f"- Files changed ({len(r.run.files_changed)}): "
                                  + ", ".join(r.run.files_changed))

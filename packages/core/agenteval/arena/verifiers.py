@@ -189,11 +189,24 @@ class TypecheckVerifier(CommandVerifier):
         )
 
 
+def _lazy_browser_verifier(**kwargs: Any) -> Verifier:
+    """Import BrowserVerifier lazily so Playwright is never a hard dependency."""
+    from .browser import BrowserConfig, BrowserVerifier
+
+    config = kwargs.get("config")
+    if config is None and "browser_config" in kwargs:
+        config = kwargs["browser_config"]
+    if isinstance(config, dict):
+        config = BrowserConfig.from_dict(config)
+    return BrowserVerifier(config=config)
+
+
 VERIFIER_REGISTRY: dict[str, type[Verifier]] = {
     "tests": TestVerifier,
     "build": BuildVerifier,
     "lint": LintVerifier,
     "typecheck": TypecheckVerifier,
+    "browser": _lazy_browser_verifier,
 }
 
 
@@ -204,7 +217,13 @@ def create_verifier(name: str, **kwargs: Any) -> Verifier:
 
 
 def list_verifiers() -> list[dict[str, str]]:
-    return [{"name": name, "verifier": cls.__name__} for name, cls in sorted(VERIFIER_REGISTRY.items())]
+    entries = []
+    for name in sorted(VERIFIER_REGISTRY):
+        if name == "browser":
+            entries.append({"name": name, "verifier": "BrowserVerifier (playwright)"})
+        else:
+            entries.append({"name": name, "verifier": VERIFIER_REGISTRY[name].__name__})
+    return entries
 
 
 __all__ = [
