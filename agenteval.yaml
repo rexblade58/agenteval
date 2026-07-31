@@ -30,6 +30,17 @@
 #       - python -m pytest
 #   regression: true
 
+# Browser verification for web apps (requires: pip install playwright
+# && playwright install chromium). Skips neutrally when Playwright is absent.
+# browser:
+#   enabled: true
+#   start: npm run dev
+#   url: http://localhost:3000
+#   ready_timeout_s: 60
+#   checks:
+#     - navigate: /
+#     - expect_text: "Welcome"
+
 # scoring:
 #   functional: 0.50
 #   regression: 0.20

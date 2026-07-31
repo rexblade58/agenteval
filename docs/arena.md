@@ -187,6 +187,34 @@ project:
 Every command's exit code, duration, stdout, and stderr are recorded in
 the report. All inferred commands are visible — nothing runs silently.
 
+## Browser verification (Playwright)
+
+For web applications, add a `browser:` section to `agenteval.yaml`:
+
+```yaml
+browser:
+  enabled: true
+  start: npm run dev
+  url: http://localhost:3000
+  ready_timeout_s: 60
+  checks:
+    - navigate: /checkout
+    - expect_text: "Checkout"
+    - screenshot: true
+```
+
+The verifier:
+
+1. starts the app and waits for readiness
+2. drives a real headless Chromium through each check
+3. fails on missing expected text, console errors, or failed network requests
+4. captures screenshots into `browser/` in the workspace
+
+Playwright is optional — install with `pip install playwright && playwright
+install chromium`. When it is missing, browser verification **skips**
+(neutral), never fails the arena. A failing browser check hard-caps the
+agent's score at 50/100 with a clear explanation.
+
 ## Regression detection
 
 An agent does not win by fixing one test while breaking others. The
