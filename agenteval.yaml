@@ -41,6 +41,14 @@
 #     - navigate: /
 #     - expect_text: "Welcome"
 
+# Optional Docker isolation for agents + verification (--sandbox docker).
+# sandbox:
+#   image: python:3.11-slim
+#   network: none      # or "bridge"
+#   cpus: "2"
+#   memory: 2g
+#   pids_limit: 256
+
 # scoring:
 #   functional: 0.50
 #   regression: 0.20

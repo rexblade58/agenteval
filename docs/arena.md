@@ -275,8 +275,36 @@ machine**. Mitigations built in:
 - bounded stdout/stderr capture (512 KB per command)
 - no secrets are ever displayed (`agenteval doctor` reports availability only)
 
-Docker/container isolation and network restrictions are planned hardening.
-Treat shell-running agents as unsafe by default.
+### Docker sandbox (optional)
+
+For stronger isolation, run agents and verification inside a container:
+
+```bash
+agenteval arena --repo . --task "..." --agents codex,claude --sandbox docker
+```
+
+Configure via `agenteval.yaml`:
+
+```yaml
+sandbox:
+  image: python:3.11-slim
+  network: none        # or "bridge"
+  cpus: "2"
+  memory: 2g
+  pids_limit: 256
+```
+
+What Docker adds:
+
+- only the workspace is mounted (nothing else on the host is visible)
+- `--network none` cuts off network access entirely (e.g. for prompts that
+  must not exfiltrate)
+- CPU/memory/pids limits constrain runaway processes
+- `--rm` guarantees the container is removed on completion or timeout
+
+Worktree execution remains the default (zero-config, no Docker required).
+**Even with Docker, treat agents as untrusted** — a sandbox reduces risk,
+it does not eliminate it.
 
 ## Options
 

@@ -100,6 +100,7 @@ results.
 | GitHub comment reporting (`--github-comment`) | ✅ |
 | Winning-solution PR creation (`--create-pr`) | ✅ |
 | Browser verification (Playwright, opt-in) | ✅ |
+| Docker sandbox isolation (`--sandbox docker`) | ✅ |
 | Community leaderboard (opt-in submissions) | 🔜 |
 
 ### 🧪 AgentEval Model Evaluation — LLM responses
@@ -157,8 +158,8 @@ tracking. Current focus: **Arena Phase 2+**.
 - [x] GitHub issue mode (`agenteval issue https://github.com/.../issues/42`)
 - [x] Winning-solution PR creation (`--create-pr`)
 - [x] Playwright browser verification (UI checks, console errors, screenshots)
+- [x] Docker sandbox isolation for untrusted agent runs
 - [ ] OpenCode/Gemini/Aider adapter hardening
-- [ ] Docker sandbox isolation for untrusted agent runs
 - [ ] Portable benchmark packs + opt-in community leaderboard
 - [ ] Shareable `AgentEval Verified ✓` badges
 
