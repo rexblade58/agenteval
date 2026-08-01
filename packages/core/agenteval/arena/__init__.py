@@ -21,6 +21,7 @@ from .agents import (
 from .arena import ArenaConfig, ArenaRunner
 from .issues import GithubIssue, IssueError, fetch_issue, parse_issue_url
 from .results import AgentResult, ArenaResult
+from .sandbox import DockerSandbox, SandboxConfig
 from .workspace import WorktreeManager
 
 __all__ = [
@@ -44,4 +45,6 @@ __all__ = [
     "IssueError",
     "fetch_issue",
     "parse_issue_url",
+    "DockerSandbox",
+    "SandboxConfig",
 ]

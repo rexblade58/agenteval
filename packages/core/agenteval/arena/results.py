@@ -82,6 +82,7 @@ class ArenaResult:
     verifiers: list[str]
     profile: dict[str, Any]
     weights: dict[str, float]
+    sandbox: str = "none"
     results: list[AgentResult] = field(default_factory=list)
     started_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     agenteval_version: str = "0.1.0"
@@ -117,6 +118,7 @@ class ArenaResult:
                 "parallel": self.parallel,
                 "timeout_s": self.timeout_s,
                 "verifiers": list(self.verifiers),
+                "sandbox": self.sandbox,
             },
             "project": self.profile,
             "scoring": {"weights": dict(self.weights)},

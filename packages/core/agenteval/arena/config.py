@@ -55,6 +55,15 @@ def load_browser_config(repo: Path) -> dict[str, Any] | None:
     return dict(browser)
 
 
+def load_sandbox_config(repo: Path) -> dict[str, Any] | None:
+    """Load the sandbox: section of agenteval.yaml, or None."""
+    data = _load_file(repo)
+    sandbox = data.get("sandbox", {}) if data else {}
+    if not isinstance(sandbox, dict) or not sandbox:
+        return None
+    return dict(sandbox)
+
+
 def load_profile_override(repo: Path) -> ProjectProfile | None:
     """Load a project: section as an explicit profile, or None."""
     data = _load_file(repo)
@@ -115,6 +124,9 @@ def config_from_repo(repo: Path, cli: dict[str, Any]) -> ArenaConfig:
     parallel = cli.get("parallel")
     if parallel is None:
         parallel = bool(arena.get("parallel", False))
+    sandbox = cli.get("sandbox")
+    if sandbox is None:
+        sandbox = arena.get("sandbox", "none")
 
     verifiers = cli.get("verifiers")
     if not verifiers and isinstance(arena.get("verifiers"), list):
@@ -132,6 +144,7 @@ def config_from_repo(repo: Path, cli: dict[str, Any]) -> ArenaConfig:
         runs=int(cli.get("runs") or 1),
         keep_worktrees=bool(cli.get("keep_worktrees")),
         create_pr=bool(cli.get("create_pr")),
+        sandbox=str(sandbox),
     )
 
 
@@ -141,5 +154,6 @@ __all__ = [
     "load_weights",
     "load_profile_override",
     "load_browser_config",
+    "load_sandbox_config",
     "config_from_repo",
 ]

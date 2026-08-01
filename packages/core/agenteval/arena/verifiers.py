@@ -64,20 +64,27 @@ class CommandVerifier(Verifier):
 
     name = "command"
 
-    def __init__(self, commands: list[str], name: str | None = None, timeout_s: int = 600):
+    def __init__(self, commands: list[str], name: str | None = None, timeout_s: int = 600,
+                 sandbox: Any = None):
         self.commands = commands
         self._name = name
         self.timeout_s = timeout_s
+        self.sandbox = sandbox  # optional DockerSandbox
 
     @property
     def name(self) -> str:  # type: ignore[override]
         return self._name or "command"
 
+    def _execute(self, workspace: Path, command: str) -> ExecResult:
+        if self.sandbox is not None:
+            return self.sandbox.run(
+                [command], workspace, self.timeout_s, shell=True,
+                name=f"agenteval-{self.name}-{_short_ts()}",
+            )
+        return run_command([command], workspace, self.timeout_s, shell=True)
+
     def verify(self, workspace: Path, profile: ProjectProfile | None = None) -> VerificationResult:
-        results = [
-            run_command([cmd], workspace, self.timeout_s, shell=True)
-            for cmd in self.commands
-        ]
+        results = [self._execute(workspace, cmd) for cmd in self.commands]
         passed = sum(1 for r in results if r.ok)
         return VerificationResult(
             name=self.name,
@@ -88,13 +95,10 @@ class CommandVerifier(Verifier):
         )
 
 
-def _run_commands(workspace: Path, commands: list[str], timeout_s: int) -> list[ExecResult]:
-    results = []
-    for cmd in commands:
-        # Allow shell syntax (&&, env vars) only for explicit config commands;
-        # detected defaults are simple single commands.
-        results.append(run_command([cmd], workspace, timeout_s, shell=True))
-    return results
+def _short_ts() -> str:
+    import time
+
+    return str(int(time.time() * 1000))[-6:]
 
 
 class TestVerifier(CommandVerifier):
@@ -102,14 +106,14 @@ class TestVerifier(CommandVerifier):
 
     name = "tests"
 
-    def __init__(self, commands: list[str] | None = None, timeout_s: int = 900):
-        super().__init__(commands or [], name="tests", timeout_s=timeout_s)
+    def __init__(self, commands: list[str] | None = None, timeout_s: int = 900, sandbox: Any = None):
+        super().__init__(commands or [], name="tests", timeout_s=timeout_s, sandbox=sandbox)
 
     def verify(self, workspace: Path, profile: ProjectProfile) -> VerificationResult:
         commands = self.commands or profile.test or []
         if not commands:
             return VerificationResult(name=self.name, passed=True, error="no test commands configured or detected")
-        results = _run_commands(workspace, commands, self.timeout_s)
+        results = [self._execute(workspace, cmd) for cmd in commands]
         passed = sum(1 for r in results if r.ok)
         return VerificationResult(
             name=self.name,
@@ -125,14 +129,14 @@ class BuildVerifier(CommandVerifier):
 
     name = "build"
 
-    def __init__(self, commands: list[str] | None = None, timeout_s: int = 900):
-        super().__init__(commands or [], name="build", timeout_s=timeout_s)
+    def __init__(self, commands: list[str] | None = None, timeout_s: int = 900, sandbox: Any = None):
+        super().__init__(commands or [], name="build", timeout_s=timeout_s, sandbox=sandbox)
 
     def verify(self, workspace: Path, profile: ProjectProfile) -> VerificationResult:
         commands = self.commands or profile.build or []
         if not commands:
             return VerificationResult(name=self.name, passed=True, error="no build commands configured or detected")
-        results = _run_commands(workspace, commands, self.timeout_s)
+        results = [self._execute(workspace, cmd) for cmd in commands]
         passed = sum(1 for r in results if r.ok)
         return VerificationResult(
             name=self.name,
@@ -148,14 +152,14 @@ class LintVerifier(CommandVerifier):
 
     name = "lint"
 
-    def __init__(self, commands: list[str] | None = None, timeout_s: int = 600):
-        super().__init__(commands or [], name="lint", timeout_s=timeout_s)
+    def __init__(self, commands: list[str] | None = None, timeout_s: int = 600, sandbox: Any = None):
+        super().__init__(commands or [], name="lint", timeout_s=timeout_s, sandbox=sandbox)
 
     def verify(self, workspace: Path, profile: ProjectProfile) -> VerificationResult:
         commands = self.commands or profile.lint or []
         if not commands:
             return VerificationResult(name=self.name, passed=True, error="no lint commands configured or detected")
-        results = _run_commands(workspace, commands, self.timeout_s)
+        results = [self._execute(workspace, cmd) for cmd in commands]
         passed = sum(1 for r in results if r.ok)
         return VerificationResult(
             name=self.name,
@@ -171,14 +175,14 @@ class TypecheckVerifier(CommandVerifier):
 
     name = "typecheck"
 
-    def __init__(self, commands: list[str] | None = None, timeout_s: int = 600):
-        super().__init__(commands or [], name="typecheck", timeout_s=timeout_s)
+    def __init__(self, commands: list[str] | None = None, timeout_s: int = 600, sandbox: Any = None):
+        super().__init__(commands or [], name="typecheck", timeout_s=timeout_s, sandbox=sandbox)
 
     def verify(self, workspace: Path, profile: ProjectProfile) -> VerificationResult:
         commands = self.commands or profile.typecheck or []
         if not commands:
             return VerificationResult(name=self.name, passed=True, error="no typecheck commands configured or detected")
-        results = _run_commands(workspace, commands, self.timeout_s)
+        results = [self._execute(workspace, cmd) for cmd in commands]
         passed = sum(1 for r in results if r.ok)
         return VerificationResult(
             name=self.name,

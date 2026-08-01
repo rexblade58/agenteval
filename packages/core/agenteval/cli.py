@@ -89,6 +89,8 @@ def build_parser() -> argparse.ArgumentParser:
     arena.add_argument("--keep-worktrees", action="store_true", help="Do not remove worktrees after the run")
     arena.add_argument("--create-pr", action="store_true",
                        help="Push the winner's solution as a branch and open a PR (requires GH_TOKEN)")
+    arena.add_argument("--sandbox", choices=["none", "docker"], default=None,
+                       help="Run agents and verification inside a Docker sandbox (default: none)")
 
     agents_sub = sub.add_parser("agents", help="List available agent adapters")
     agents_sub.add_argument("list", nargs="?", default="list", help="Subcommand (only 'list')")
@@ -109,6 +111,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Post the result back as a comment on the issue")
     issue.add_argument("--create-pr", action="store_true",
                        help="Push the winner's solution as a branch and open a PR (requires GH_TOKEN)")
+    issue.add_argument("--sandbox", choices=["none", "docker"], default=None,
+                       help="Run agents and verification inside a Docker sandbox (default: none)")
 
     sub.add_parser("doctor", help="Check environment readiness for arena evaluation")
 
@@ -305,6 +309,7 @@ def _run_arena(args: argparse.Namespace) -> int:
         fmt=args.format,
         output_dir=args.output_dir,
         create_pr=args.create_pr,
+        sandbox=args.sandbox,
     )
 
 
@@ -338,6 +343,7 @@ def _run_issue(args: argparse.Namespace) -> int:
         output_dir=args.output_dir,
         github_comment=(issue, task_text) if args.github_comment else None,
         create_pr=args.create_pr,
+        sandbox=args.sandbox,
     )
     return code
 
@@ -357,12 +363,14 @@ def _execute_arena(
     output_dir: str | None,
     github_comment: tuple[Any, str] | None = None,
     create_pr: bool = False,
+    sandbox: str | None = None,
 ) -> int:
     from .arena.arena import ArenaRunner
     from .arena.config import (
         load_agent_configs,
         load_browser_config,
         load_profile_override,
+        load_sandbox_config,
         load_verify_commands,
         load_weights,
         config_from_repo,
@@ -392,6 +400,7 @@ def _execute_arena(
         config.weights = load_weights(repo_path)
         config.profile = load_profile_override(repo_path)
         config.browser_config = load_browser_config(repo_path)
+        config.sandbox_config = load_sandbox_config(repo_path)
     else:
         # Remote repos: read custom agents/config from the current directory
         cwd = Path.cwd()
@@ -400,6 +409,9 @@ def _execute_arena(
         config.weights = load_weights(cwd)
         config.profile = load_profile_override(cwd)
         config.browser_config = load_browser_config(cwd)
+        config.sandbox_config = load_sandbox_config(cwd)
+    if sandbox is not None:
+        config.sandbox = sandbox
     config.quiet = fmt == "json"
 
     # Browser verification is opt-in via config (avoids surprising Playwright installs)
@@ -414,7 +426,11 @@ def _execute_arena(
         return 1
 
     runner = ArenaRunner(config)
-    result = runner.run()
+    try:
+        result = runner.run()
+    except RuntimeError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
 
     run_dir = output_dir
     if run_dir is None:

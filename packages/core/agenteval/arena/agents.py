@@ -102,6 +102,7 @@ class CommandAgent(AgentAdapter):
         shell: bool = False,
         env: dict[str, str] | None = None,
         description: str = "",
+        sandbox: Any = None,
     ):
         super().__init__(timeout_s=timeout_s)
         self.command_template = command
@@ -109,6 +110,7 @@ class CommandAgent(AgentAdapter):
         self.shell = shell
         self.extra_env = env or {}
         self.description = description
+        self.sandbox = sandbox  # optional DockerSandbox
 
     @property
     def name(self) -> str:  # type: ignore[override]
@@ -132,7 +134,18 @@ class CommandAgent(AgentAdapter):
             merged_env.update(env)
 
         cmd = self._build_command(workspace, task)
-        result = run_command(cmd, workspace, self.timeout_s, env=merged_env, shell=self.shell)
+
+        if self.sandbox is not None:
+            result = self.sandbox.run(
+                cmd,
+                workspace,
+                self.timeout_s,
+                env=merged_env,
+                shell=self.shell,
+                name=f"agenteval-{self.name}-{_short_ts()}",
+            )
+        else:
+            result = run_command(cmd, workspace, self.timeout_s, env=merged_env, shell=self.shell)
 
         if result.error and result.exit_code is None:
             status = AgentStatus.AGENT_ERROR
@@ -153,6 +166,12 @@ class CommandAgent(AgentAdapter):
             error=result.error or (None if result.exit_code == 0 else f"exit code {result.exit_code}"),
             commands_executed=[result.command],
         )
+
+
+def _short_ts() -> str:
+    import time
+
+    return str(int(time.time() * 1000))[-6:]
 
 
 class CodexAgent(CommandAgent):

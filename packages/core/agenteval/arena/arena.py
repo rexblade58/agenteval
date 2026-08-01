@@ -45,6 +45,8 @@ class ArenaConfig:
     quiet: bool = False
     create_pr: bool = False
     browser_config: dict[str, Any] | None = None
+    sandbox: str = "none"  # "none" | "docker"
+    sandbox_config: dict[str, Any] | None = None
 
 
 class ArenaRunner:
@@ -53,6 +55,7 @@ class ArenaRunner:
     def __init__(self, config: ArenaConfig):
         self.config = config
         self._manager: WorktreeManager | None = None
+        self._sandbox: Any = None
         self._baseline_tests: VerificationResult | None = None
         self._baseline_build: VerificationResult | None = None
         self._baseline_lint: VerificationResult | None = None
@@ -62,6 +65,20 @@ class ArenaRunner:
     def _log(self, message: str) -> None:
         if not self.config.quiet:
             print(message)
+
+    def _get_sandbox(self) -> Any | None:
+        """Create a DockerSandbox when docker isolation is configured."""
+        if self.config.sandbox != "docker":
+            return None
+        from .sandbox import DockerSandbox, SandboxConfig
+
+        sandbox = DockerSandbox(SandboxConfig.from_dict(self.config.sandbox_config))
+        if not sandbox.available():
+            raise RuntimeError(
+                "--sandbox docker requires a running Docker daemon (check: docker info)"
+            )
+        self._log("Docker sandbox isolation enabled")
+        return sandbox
 
     # ------------------------------------------------------------------ setup
     def _resolve_profile(self) -> ProjectProfile:
@@ -74,14 +91,15 @@ class ArenaRunner:
 
     def _verifier(self, name: str) -> Any:
         commands = self.config.verify_commands.get(name)
+        sandbox = self._sandbox
         if name == "tests":
-            return TestVerifier(commands, timeout_s=self.config.timeout_s)
+            return TestVerifier(commands, timeout_s=self.config.timeout_s, sandbox=sandbox)
         if name == "build":
-            return BuildVerifier(commands, timeout_s=self.config.timeout_s)
+            return BuildVerifier(commands, timeout_s=self.config.timeout_s, sandbox=sandbox)
         if name == "lint":
-            return LintVerifier(commands, timeout_s=self.config.timeout_s)
+            return LintVerifier(commands, timeout_s=self.config.timeout_s, sandbox=sandbox)
         if name == "typecheck":
-            return TypecheckVerifier(commands, timeout_s=self.config.timeout_s)
+            return TypecheckVerifier(commands, timeout_s=self.config.timeout_s, sandbox=sandbox)
         if name == "browser":
             from .browser import BrowserConfig, BrowserVerifier
 
@@ -211,6 +229,7 @@ class ArenaRunner:
         self._manager = WorktreeManager(repo, base_commit=self.config.commit,
                                         keep=self.config.keep_worktrees)
         try:
+            self._sandbox = self._get_sandbox()
             self._profile = self._resolve_profile()
             self._log(f"Repository: {repo} @ {self._manager.base_commit[:12]}")
             self._log(f"Project:    {self._profile.describe()}\n")
@@ -253,6 +272,7 @@ class ArenaRunner:
                 verifiers=list(self.config.verifiers),
                 profile=self._profile.to_dict(),
                 weights=self.config.weights or {},
+                sandbox=self.config.sandbox,
                 results=attempts,
                 agenteval_version=__version__,
             )
@@ -283,7 +303,10 @@ class ArenaRunner:
                 f"unknown agent '{name}'. Configure it in agenteval.yaml "
                 f"(agents: section) or use one of: {', '.join(sorted(AGENT_REGISTRY))}"
             )
-        return create_agent(name, timeout_s=self.config.timeout_s, config=config)
+        agent = create_agent(name, timeout_s=self.config.timeout_s, config=config)
+        if self._sandbox is not None and hasattr(agent, "sandbox"):
+            agent.sandbox = self._sandbox
+        return agent
 
 
 __all__ = ["ArenaConfig", "ArenaRunner"]
