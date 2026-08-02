@@ -91,6 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Push the winner's solution as a branch and open a PR (requires GH_TOKEN)")
     arena.add_argument("--sandbox", choices=["none", "docker"], default=None,
                        help="Run agents and verification inside a Docker sandbox (default: none)")
+    arena.add_argument("--badge", default=None, metavar="FILE",
+                       help="Write a winner badge SVG after the run")
 
     agents_sub = sub.add_parser("agents", help="List available agent adapters")
     agents_sub.add_argument("list", nargs="?", default="list", help="Subcommand (only 'list')")
@@ -115,6 +117,12 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Run agents and verification inside a Docker sandbox (default: none)")
 
     sub.add_parser("doctor", help="Check environment readiness for arena evaluation")
+
+    verify = sub.add_parser("verify", help="Run tests/build/lint/typecheck in place and report a summary")
+    verify.add_argument("--repo", default=".", help="Repository path (default: .)")
+    verify.add_argument("--timeout", type=int, default=900, help="Per-command timeout in seconds")
+    verify.add_argument("--badge", default=None, metavar="FILE",
+                        help="Write an SVG badge (agenteval-verified.svg)")
 
     return parser
 
@@ -292,6 +300,29 @@ def _serve(args: argparse.Namespace) -> int:
     return 0
 
 
+def _verify(args: argparse.Namespace) -> int:
+    from .arena.verify import all_passed, summary, verify_project
+    from .arena.badges import markdown_snippet, verified_badge, write_badge
+
+    workspace = Path(args.repo)
+    if not workspace.is_dir():
+        print(f"error: not a directory: {workspace}", file=sys.stderr)
+        return 1
+
+    print(f"Verifying {workspace} ...\n")
+    results = verify_project(workspace, timeout_s=args.timeout)
+    print(summary(results))
+
+    if args.badge:
+        passed = all_passed(results)
+        svg = verified_badge(passed)
+        write_badge(svg, Path(args.badge))
+        print(f"\nBadge written to {args.badge}")
+        print(f"README snippet: {markdown_snippet(args.badge)}")
+
+    return 0 if all_passed(results) else 2
+
+
 def _run_arena(args: argparse.Namespace) -> int:
     repo = Path(args.repo)
     task_text, task_file = _load_task(args.task, repo)
@@ -310,6 +341,7 @@ def _run_arena(args: argparse.Namespace) -> int:
         output_dir=args.output_dir,
         create_pr=args.create_pr,
         sandbox=args.sandbox,
+        badge_path=args.badge,
     )
 
 
@@ -364,6 +396,7 @@ def _execute_arena(
     github_comment: tuple[Any, str] | None = None,
     create_pr: bool = False,
     sandbox: str | None = None,
+    badge_path: str | None = None,
 ) -> int:
     from .arena.arena import ArenaRunner
     from .arena.config import (
@@ -459,6 +492,14 @@ def _execute_arena(
             print(f"warning: could not post comment: {exc}", file=sys.stderr)
 
     print(f"\nArtifacts: {paths['json'].parent}", file=sys.stderr)
+
+    if badge_path:
+        from .arena.badges import markdown_snippet, winner_badge, write_badge
+
+        write_badge(winner_badge(result), Path(badge_path))
+        print(f"Winner badge written to {badge_path}")
+        print(f"README snippet: {markdown_snippet(badge_path)}", file=sys.stderr)
+
     return 0
 
 
@@ -539,6 +580,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_arena(args)
     if args.command == "issue":
         return _run_issue(args)
+    if args.command == "verify":
+        return _verify(args)
     if args.command == "agents":
         return _agents_list()
     if args.command == "verifiers":
