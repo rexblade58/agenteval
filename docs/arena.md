@@ -306,6 +306,24 @@ Worktree execution remains the default (zero-config, no Docker required).
 **Even with Docker, treat agents as untrusted** — a sandbox reduces risk,
 it does not eliminate it.
 
+## Shareable badges
+
+Show verification evidence in your README without any hosted service —
+badges are dependency-free SVGs generated locally.
+
+```bash
+# Verify the repo and write a badge (green "Verified" / red "Failed")
+agenteval verify --repo . --badge agenteval-verified.svg
+# → README snippet: [![AgentEval](agenteval-verified.svg)](#)
+
+# Winner badge after an arena run
+agenteval arena --repo . --task "..." --agents codex,claude --badge winner.svg
+# → "AgentEval Arena: Winner: codex 96.0"
+```
+
+Both generate fully self-contained SVG files (no external services, no
+network-loaded assets) plus the markdown snippet for your README.
+
 ## Options
 
 ```text

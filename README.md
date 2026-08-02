@@ -101,6 +101,7 @@ results.
 | Winning-solution PR creation (`--create-pr`) | ✅ |
 | Browser verification (Playwright, opt-in) | ✅ |
 | Docker sandbox isolation (`--sandbox docker`) | ✅ |
+| Shareable SVG badges (`verify --badge`, `arena --badge`) | ✅ |
 | Community leaderboard (opt-in submissions) | 🔜 |
 
 ### 🧪 AgentEval Model Evaluation — LLM responses
@@ -159,9 +160,9 @@ tracking. Current focus: **Arena Phase 2+**.
 - [x] Winning-solution PR creation (`--create-pr`)
 - [x] Playwright browser verification (UI checks, console errors, screenshots)
 - [x] Docker sandbox isolation for untrusted agent runs
+- [x] Shareable badges (`agenteval verify --badge`, `arena --badge`)
 - [ ] OpenCode/Gemini/Aider adapter hardening
 - [ ] Portable benchmark packs + opt-in community leaderboard
-- [ ] Shareable `AgentEval Verified ✓` badges
 
 Completed (model evaluation): dashboard, semantic scoring, Gemini/Groq
 providers, adversarial suite, trace evaluation, human review, reusable CI,
