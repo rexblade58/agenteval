@@ -124,6 +124,15 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--badge", default=None, metavar="FILE",
                         help="Write an SVG badge (agenteval-verified.svg)")
 
+    benchmark = sub.add_parser("benchmark", help="Manage community benchmark packs")
+    benchmark.add_argument("subcommand", choices=["list", "install", "run"])
+    benchmark.add_argument("name", nargs="?", default=None,
+                           help="Pack name (list/run) or source (install: git URL or directory)")
+    benchmark.add_argument("--agents", default="", help="Override agents (comma-separated)")
+    benchmark.add_argument("--dir", default="benchmarks",
+                           help="Pack directory (default: benchmarks)")
+    benchmark.add_argument("--timeout", type=int, default=None, help="Override per-task timeout")
+
     return parser
 
 
@@ -321,6 +330,120 @@ def _verify(args: argparse.Namespace) -> int:
         print(f"README snippet: {markdown_snippet(args.badge)}")
 
     return 0 if all_passed(results) else 2
+
+
+def _benchmark(args: argparse.Namespace) -> int:
+    from .arena.benchmarks import (
+        BenchmarkError,
+        discover_packs,
+        install_pack,
+    )
+
+    packs_dir = Path(args.dir)
+
+    if args.subcommand == "list":
+        packs = discover_packs(packs_dir)
+        if not packs:
+            print(f"No benchmark packs found in {packs_dir} "
+                  f"(run 'agenteval benchmark install <git-url|dir>' to add one)")
+            return 0
+        print(f"Benchmark packs in {packs_dir}:\n")
+        for pack in packs:
+            agents = ", ".join(pack.agents) if pack.agents else "all installed"
+            print(f"  {pack.name:<24} {pack.description}")
+            print(f"    repo: {pack.repo}  tasks: {len(pack.tasks)}  agents: {agents}")
+        return 0
+
+    if args.subcommand == "install":
+        if not args.name:
+            print("error: benchmark install requires a source (git URL or directory)", file=sys.stderr)
+            return 1
+        try:
+            target = install_pack(args.name, packs_dir)
+        except BenchmarkError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 1
+        print(f"Installed benchmark pack at {target}")
+        return 0
+
+    # run
+    if not args.name:
+        print("error: benchmark run requires a pack name", file=sys.stderr)
+        return 1
+    pack = next(
+        (p for p in discover_packs(packs_dir) if p.name == args.name),
+        None,
+    )
+    if pack is None:
+        print(f"error: no benchmark pack named '{args.name}' in {packs_dir}", file=sys.stderr)
+        return 1
+
+    if not pack.tasks:
+        print(f"error: pack '{pack.name}' has no tasks", file=sys.stderr)
+        return 1
+    agents = [a.strip() for a in args.agents.split(",") if a.strip()] or pack.agents
+    if not agents:
+        print(f"error: pack '{pack.name}' defines no agents - pass --agents codex,claude",
+              file=sys.stderr)
+        return 1
+
+    from .arena.arena import ArenaConfig, ArenaRunner
+    from .arena.config import load_agent_configs, load_browser_config, load_sandbox_config
+
+    # Resolve relative repo paths against the pack's own directory
+    pack_dir = Path(pack.source)
+    repo_target = pack.repo
+    if not pack.repo.startswith(("https://", "http://", "git@", "ssh://", "git://")):
+        candidate = Path(pack.repo)
+        if not candidate.is_absolute():
+            candidate = pack_dir / pack.repo
+        repo_target = str(candidate)
+
+    print(f"Benchmark: {pack.name}")
+    print(f"  {pack.description}")
+    print(f"  repo:    {repo_target}")
+    print(f"  tasks:   {len(pack.tasks)}")
+    print(f"  agents:  {', '.join(agents)}\n")
+
+    failures = 0
+    for idx, task in enumerate(pack.tasks, 1):
+        print(f"[{idx}/{len(pack.tasks)}] {task[:90]}")
+        config = ArenaConfig(
+            repo=repo_target,
+            task=task,
+            agents=agents,
+            runs=pack.runs,
+            parallel=pack.parallel,
+            timeout_s=args.timeout or pack.timeout,
+            commit=pack.commit,
+        )
+        if repo_target.startswith(("https://", "http://", "git@", "ssh://", "git://")):
+            cwd = Path.cwd()
+            config.agent_configs = load_agent_configs(cwd)
+            config.browser_config = load_browser_config(cwd)
+            config.sandbox_config = load_sandbox_config(cwd)
+        else:
+            repo_path = Path(repo_target)
+            config.agent_configs = load_agent_configs(pack_dir)
+            config.browser_config = load_browser_config(pack_dir)
+            config.sandbox_config = load_sandbox_config(pack_dir)
+
+        runner = ArenaRunner(config)
+        try:
+            result = runner.run()
+        except RuntimeError as exc:
+            print(f"  error: {exc}", file=sys.stderr)
+            failures += 1
+            continue
+
+        winner = result.winner
+        summary = f"{winner.agent} ({winner.score.total})" if winner else "no winner"
+        print(f"  -> {summary}\n")
+        if winner is None or winner.score.total < 60:
+            failures += 1
+
+    print(f"Benchmark complete: {len(pack.tasks) - failures}/{len(pack.tasks)} task(s) passed")
+    return 0 if failures == 0 else 2
 
 
 def _run_arena(args: argparse.Namespace) -> int:
@@ -582,6 +705,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_issue(args)
     if args.command == "verify":
         return _verify(args)
+    if args.command == "benchmark":
+        return _benchmark(args)
     if args.command == "agents":
         return _agents_list()
     if args.command == "verifiers":
