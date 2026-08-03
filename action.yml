@@ -1,0 +1,110 @@
+name: 'AgentEval'
+description: >-
+  Make AI agents prove their code works. Verify repositories or battle
+  coding agents on the same real task, with objective test/build evidence.
+author: Menard Rosal
+branding:
+  icon: 'check-circle'
+  color: 'green'
+
+inputs:
+  mode:
+    description: 'verify (tests/build/lint/typecheck) or arena (agent battle)'
+    required: false
+    default: 'verify'
+  repo:
+    description: 'Repository path or git URL (default: checkout)'
+    required: false
+    default: '.'
+  task:
+    description: 'Task description for arena mode (or GitHub issue URL)'
+    required: false
+    default: ''
+  agents:
+    description: 'Comma-separated agents for arena mode (codex,claude,opencode,...)'
+    required: false
+    default: ''
+  min_accuracy:
+    description: 'Minimum score threshold (0-100). Fails the job below it.'
+    required: false
+    default: '60'
+  timeout:
+    description: 'Per-agent/command timeout in seconds'
+    required: false
+    default: '900'
+  python_version:
+    description: 'Python version for the runner'
+    required: false
+    default: '3.11'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Install AgentEval
+      shell: bash
+      run: pip install --quiet "agenteval @ git+https://github.com/rexblade58/agenteval.git@main"
+
+    - name: Verify repository
+      shell: bash
+      if: inputs.mode == 'verify'
+      run: |
+        agenteval verify --repo "${{ inputs.repo }}" --timeout ${{ inputs.timeout }}
+      env:
+        MIN_ACCURACY: ${{ inputs.min_accuracy }}
+
+    - name: Run arena battle
+      shell: bash
+      if: inputs.mode == 'arena'
+      env:
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      run: |
+        AGENTS="${{ inputs.agents }}"
+        if [ -z "$AGENTS" ]; then
+          echo "::error::arena mode requires agents (e.g. agents: 'codex,claude')"
+          exit 1
+        fi
+        if [[ "${{ inputs.task }}" == https://github.com/*/issues/* ]]; then
+          agenteval issue "${{ inputs.task }}" \
+            --agents "$AGENTS" \
+            --timeout ${{ inputs.timeout }} \
+            --format json > agenteval-result.json
+        else
+          agenteval arena \
+            --repo "${{ inputs.repo }}" \
+            --task "${{ inputs.task }}" \
+            --agents "$AGENTS" \
+            --timeout ${{ inputs.timeout }} \
+            --format json > agenteval-result.json
+        fi
+        python - <<'EOF'
+        import json
+        with open("agenteval-result.json") as fh:
+            data = json.load(fh)
+        winner = None
+        best = -1
+        for r in data.get("results", []):
+            score = (r.get("score") or {}).get("total", 0)
+            if score > best:
+                best = score
+                winner = r["agent"]
+        threshold = float("${{ inputs.min_accuracy }}")
+        print(f"Arena winner: {winner} (score {best})")
+        if best < threshold:
+            print(f"::error::best score {best} below threshold {threshold}")
+            exit(1)
+        EOF
+
+    - name: Upload arena report
+      uses: actions/upload-artifact@v4
+      if: inputs.mode == 'arena'
+      with:
+        name: agenteval-arena
+        path: agenteval-result.json

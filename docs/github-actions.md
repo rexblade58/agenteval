@@ -1,9 +1,43 @@
 # GitHub Actions integration
 
-AgentEval ships a reusable GitHub Actions workflow so any repository can
-gate on agent quality without writing CI from scratch.
+AgentEval ships a reusable GitHub Actions workflow **and** a packaged
+action so any repository can gate on agent quality without writing CI from
+scratch.
 
-## Quick start
+## Packaged action (Marketplace-ready)
+
+The repo root `action.yml` wraps both modes with friendly inputs:
+
+```yaml
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rexblade58/agenteval@main
+        with:
+          mode: verify          # or 'arena'
+          agents: codex,claude  # arena mode
+          task: "fix the checkout discount"  # arena mode (or issue URL)
+          min_accuracy: 60
+```
+
+| Input | Default | Description |
+| :--- | :--- | :--- |
+| `mode` | `verify` | `verify` or `arena` |
+| `repo` | `.` | Repository path or URL |
+| `task` | — | Task text or GitHub issue URL (arena) |
+| `agents` | — | Comma-separated agents (arena, required) |
+| `min_accuracy` | `60` | Fails the job below this score |
+| `timeout` | `900` | Per-agent/command timeout |
+| `python_version` | `3.11` | Runner Python |
+
+`mode: verify` runs `agenteval verify` (tests/build/lint/typecheck) and
+fails the job on failure. `mode: arena` runs a head-to-head, prints the
+winner, gates on `min_accuracy`, and uploads the JSON report as an
+artifact.
+
+## Reusable workflow
 
 Copy `examples/agent-eval-workflow.yml` into your repository at
 `.github/workflows/agent-eval.yml` and add the API key secrets you need.
