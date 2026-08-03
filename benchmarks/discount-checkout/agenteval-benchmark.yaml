@@ -1,0 +1,11 @@
+name: discount-checkout
+description: Fix the checkout discount threshold (10% off over $50)
+repo: https://github.com/rexblade58/agenteval-fixtures
+commit: python-app
+tasks:
+  - "Fix the checkout discount: 10% off should apply over $50, currently it applies over $100"
+  - "Ensure the discount works with multiple products in the cart"
+agents: [command]
+runs: 1
+timeout: 600
+parallel: false
